@@ -1,5 +1,5 @@
 ;;; mtorus-state.el --- state functions of the mtorus
-;; $Id: mtorus-state.el,v 1.1 2004/09/05 00:37:39 hroptatyr Exp $
+;; $Id: mtorus-state.el,v 1.2 2004/09/09 23:18:22 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -51,7 +51,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-state-version "Version: 0.1 $Revision: 1.1 $"
+(defconst mtorus-state-version "Version: 0.1 $Revision: 1.2 $"
   "Version of mtorus-state backend.
 THIS IS NOT WORKING AT THE MOMENT!")
 
@@ -99,9 +99,23 @@ THIS IS NOT WORKING AT THE MOMENT!")
 
 
 (defun mtorus-state-object-dumpable-p (object)
-  "Returns object if it is dumpable, nil otherwise."
-  (string= (format "%s" object)
-           (format "%S" object)))
+  "Returns OBJECT if it is dumpable, nil otherwise."
+  (cond ((stringp object))
+        ((string= (format "%s" object)
+                  (format "%S" object)))))
+(defun mtorus-state-keyvalpair-dumpable-p (keyw object)
+  "Returns the pair if OBJECT is dumpable, nil otherwise."
+  (and (mtorus-state-object-dumpable-p object)
+       (list keyw object)))
+(defun mtorus-state-filter-dumpable (&rest spec)
+  ""
+  (let (result)
+    (loop for (key val) on spec by #'cddr
+      do
+      (and (mtorus-state-object-dumpable-p val)
+           (setq result
+                 (append result (list key val)))))
+    result))
 
 (defun mtorus-state-save ()
   "Saves current mtorus to a dump buffer."
@@ -115,20 +129,23 @@ THIS IS NOT WORKING AT THE MOMENT!")
        #'(lambda (elem el-prop-ht)
            (insert
             (format
-             "%S\n"
-             (eval 
-              `(vector
-                :type '',(mtorus-element-get-type elem)
-                :symbol '',elem
-                ,@(mtorus-element-property-get
-                   'value
-                   (mtorus-type-convert-to 'dump el-prop-ht))))
-             )))
+             "(%s)\n"
+             (mapconcat
+              #'(lambda (obj)
+                  (format "%S" obj))
+              (eval 
+               `(mtorus-state-filter-dumpable
+                 :type ',(mtorus-element-get-type elem)
+                 :symbol ',elem
+                 ,@(mtorus-element-property-get
+                    'value
+                    (mtorus-type-convert-to 'dump el-prop-ht))))
+             " "))))
        (eval mtorus-elements-hash-table))
       (mapc #'(lambda (nh)
                 (maphash #'(lambda (key val)
                              (maphash #'(lambda (el rel)
-                                          (insert (format "%s: %s - %s\n" rel key el)))
+                                          (insert (format "[%s %s %s]\n" rel key el)))
                                       val))
                          (eval (mtorus-utils-symbol-conc
                                 'mtorus-topology-standard nh))))
@@ -147,15 +164,42 @@ THIS IS NOT WORKING AT THE MOMENT!")
 
 (defun mtorus-state-load ()
   ""
-
-(with-current-buffer (get-buffer-create "*MTorus Dump*")
-  (goto-char (point-min)) (insert "(\n")
-  (goto-char (point-max)) (insert "\n)")
-  (goto-char (point-min))
-  (setq records (read (current-buffer))))
+  (with-temp-buffer 
+    (erase-buffer)
+    (insert-file-contents "~/.mtorus.dump")
+    (goto-char (point-min)) (insert "(\n")
+    (goto-char (point-max)) (insert "\n)")
+    (goto-char (point-min))
+    (setq records (read (current-buffer))))
+  (mapc
+   #'(lambda (state-vec)
+       (cond
+        ((listp state-vec)
+         (let ((symbol
+                (mtorus-utils-plist-get state-vec ':symbol))
+               (type
+                (mtorus-utils-plist-get state-vec ':type)))
+           (cond
+            ((not (eq symbol 'mtorus-universe))
+             (mtorus-element-register
+              symbol 
+              (mtorus-type-convert-to
+               type
+               (make-mtorus-element
+                :type 'dump
+                :symbol symbol
+                :name (mtorus-utils-plist-get state-vec ':element-name)
+                :value (cddddr state-vec) ;; (mtorus-element-get-value 'mtorus-universe))
+                :description "Restored from dump.")))))))
+        ((vectorp state-vec)
+         (mtorus-topology-standard-define-relation (aref state-vec 0) (aref state-vec 1) (aref state-vec 2)))))
+       records)
   )
 
-
+;; (maphash (lambda (k v)
+;;            (insert (format "\n%S %S" k v)))
+;;          (mtorus-type-convert-to 'buffer
+;;                                  (mtorus-type-convert-to 'dump test)))
 
 (provide 'mtorus-state)
 

@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.13 2004/09/04 02:37:32 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.14 2004/09/09 23:18:22 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.3 $Revision: 1.13 $"
+(defconst mtorus-element-version "Version: 0.3 $Revision: 1.14 $"
   "Version of mtorus-element backend.")
 
 
@@ -633,8 +633,7 @@ if a current ring cannot be determined."
        :symbol 'mtorus-universe
        :name "MTorus universe"
        :value (and (boundp 'mtorus-universe)) ;; (mtorus-element-get-value 'mtorus-universe))
-       :description "This is the only pregenerated ring: The MTorus Universe"
-       :variable-documentation "This is the MTorus Universe.\nDON'T FIDDLE WITH THIS."))))
+       :description "This is the only pregenerated ring: The MTorus Universe"))))
 
 (mtorus-element-initialize)
 

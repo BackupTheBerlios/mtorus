@@ -1,5 +1,5 @@
 ;;; mtorus-convert.el --- type converters for mtorus
-;; $Id: mtorus-convert.el,v 1.2 2004/09/05 00:37:39 hroptatyr Exp $
+;; $Id: mtorus-convert.el,v 1.3 2004/09/09 23:18:22 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -52,7 +52,7 @@
   :group 'mtorus-type)
 
 
-(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.2 $"
+(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.3 $"
   "Version of mtorus-convert backend.")
 
 
@@ -117,6 +117,7 @@
 (define-mtorus-type-convert :buffer-name)
 (define-mtorus-type-convert :buffer-file-name)
 (define-mtorus-type-convert :buffer-point)
+(define-mtorus-type-convert :element-name)
 
  
 
@@ -262,12 +263,18 @@ Do not fiddle with it.")
   "Initialization of predefined mtorus types."
   (interactive)
 
+  (define-mtorus-convert ring
+    :element-name prop::name
+    :type 'ring
+    :value conv::buffer-name
+    )
   (define-mtorus-convert buffer
     :buffer prop::value
     :buffer-name (buffer-name prop::value)
     :buffer-file-name (buffer-file-name prop::value)
     :buffer-point (with-current-buffer prop::value
                     (point))
+    :element-name (buffer-name prop::value)
     :type 'buffer
     :value conv::buffer
     )
@@ -276,6 +283,7 @@ Do not fiddle with it.")
     :buffer-name (buffer-name (marker-buffer prop::value))
     :buffer-file-name (buffer-file-name (marker-buffer prop::value))
     :buffer-point (marker-position prop::value)
+    :element-name (buffer-name (marker-buffer prop::value))
     :type 'marker
     :value (set-marker (make-marker) conv::buffer-point conv::buffer)
     )
@@ -284,6 +292,7 @@ Do not fiddle with it.")
     :buffer-name prop::name
     :buffer-file-name prop::value
     ;;:buffer-point (marker-position prop::value)
+    :element-name prop::name
     :type 'file
     :value conv::buffer-file-name
     :name conv::buffer-name
