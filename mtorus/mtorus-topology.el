@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.8 2004/08/10 22:22:44 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.9 2004/08/11 07:16:19 ska Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.8 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.9 $"
   "Version of mtorus-topology backend.")
 
 
@@ -732,8 +732,8 @@ defines a fun which takes a neighborhood and returns an ordered neighborhood."
     by-age
     :predicate
     (lambda (el1 el2)
-      (time-less-p (mtorus-element-get-ctime el1 (current-time))
-                   (mtorus-element-get-ctime el2 (current-time))))
+      (mtorus-utils-time-less-p (mtorus-element-get-ctime el1 (current-time))
+                                (mtorus-element-get-ctime el2 (current-time))))
     :order-fun
     'stable-sort))
 
