@@ -1,5 +1,5 @@
 ;;; mtorus-utils.el --- auxiliary stuff used
-;; $Id: mtorus-utils.el,v 1.3 2004/08/02 22:20:56 hroptatyr Exp $
+;; $Id: mtorus-utils.el,v 1.4 2004/08/09 01:11:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -39,7 +39,7 @@
 
 (defun mtorus-utils-keyword->symbol (key)
   ":keyword -> 'keyword"
-  (intern (substring (format "%s" key) 1)))
+  (intern (replace-regexp-in-string ":" "" (format "%s" key))))
 (defun mtorus-utils-symbol->keyword (sym)
   "'keyword -> :keyword"
   (intern (format ":%s" key)))
@@ -64,6 +64,12 @@ and make the result a symbol."
               symbols "-")))
 ;;(mtorus-utils-symbol-conc 'a 'b 'c)
 
+(defun mtorus-utils-plist-get (plist property &optional default)
+  "Just like `plist-get'."
+  (or (plist-get plist property)
+      default))
+;;(mtorus-utils-plist-get '(:test test1 :test test2) ':test)
+
 (defun mtorus-utils-parse-key (keyword spec &optional default)
   "Parses SPEC for keyword KEY and returns a cons cell of key and value."
   (let ((keyword
@@ -72,8 +78,8 @@ and make the result a symbol."
                ((symbolp keyword)
                 (mtorus-utils-symbol->keyword keyword))
                (t nil))))
-    (mtorus-utils-keyval->cons keyword (or (plist-get spec keyword)
-                                           default))))
+    (mtorus-utils-keyval->cons keyword
+                               (mtorus-utils-plist-get spec keyword default))))
 (defun mtorus-utils-parse-key-cdr (keyword spec &optional default)
   "Parses SPEC for keyword KEY and returns its value."
   (cdr-safe (mtorus-utils-parse-key keyword spec default)))
@@ -140,6 +146,100 @@ The original plist is not modified."
          (save-excursion (beginning-of-line) (point)))
        (defmacro mtorus-point-at-eol ()
          (save-excursion (end-of-line) (point)))))
+
+
+
+;;; keyword handling
+
+
+(defun mtorus-utils-keyword-type-replace-keyword-1 (list-elem prop-ht)
+  ""
+  (cond ((keywordp list-elem)
+         `',(mtorus-element-keyword-type-get list-elem prop-ht))
+        (t list-elem)))
+(defun mtorus-utils-keyword-type-replace-keyword (list prop-ht)
+  ""
+  (mapcar #'(lambda (l-elem)
+              (mtorus-utils-keyword-type-replace-keyword-1 l-elem prop-ht))
+        list))
+
+
+(defmacro define-mtorus-element-keyword-action (name keyword &rest specs)
+  "Defines an mtorus-element-KEYWORD and some ACTION for it using NAME."
+  (or (boundp 'mtorus-element)
+      (defvar mtorus-element nil
+        "DOCUMENT ME!"))
+  (setq mtorus-element (del-alist keyword mtorus-element)
+        mtorus-element
+        (append mtorus-element (list (cons keyword (append `(:type ,name) specs)))))
+  (let* ((type-specs (cdr-safe (assoc name mtorus-element-keyword-types)))
+         (get-fun (mtorus-utils-parse-key-cdr :get type-specs))
+         (put-fun (mtorus-utils-parse-key-cdr :put type-specs)))
+    (mapc
+     #'eval
+     `((defun ,(mtorus-utils-symbol-conc 'mtorus-element-keyword-type 'get
+                                         (mtorus-utils-keyword->symbol keyword))
+         (el-p-ht &optional default)
+         ,(format "Gets the %s %s from ELEMENT." keyword name)
+         (funcall ',get-fun ',keyword el-p-ht default))
+       (defun ,(mtorus-utils-symbol-conc 'mtorus-element-keyword-type 'put
+                                         (mtorus-utils-keyword->symbol keyword))
+         (el-p-ht value)
+         ,(format "Puts VALUE to the %s %s of ELEMENT." keyword name)
+         (funcall ',put-fun ',keyword el-p-ht value))
+       )))
+  `',keyword)
+
+(defmacro define-mtorus-element-keyword-type (name &rest specs)
+  "Installs `define-mtorus-element-<NAME>' funs by using name."
+  (or (boundp 'mtorus-element-keyword-types)
+      (defvar mtorus-element-keyword-types nil
+        "DOCUMENT ME!"))
+  (set-alist 'mtorus-element-keyword-types name specs)
+  (let ((bouncer-name (mtorus-utils-symbol-conc 'define-mtorus-element name)))
+    (mapc
+     #'eval
+     `((defmacro ,bouncer-name
+         (keyword &rest specs)
+         ,(format "Defines an mtorus-element %s-KEYWORD and some ACTION for it."
+                  name)
+         (eval
+          ,(list
+            'backquote
+            `(define-mtorus-element-keyword-action ,name ,'(\, keyword) ,'(\,@ specs)))))
+       ))
+    `',bouncer-name))
+
+(defun mtorus-element-keyword-get-type (keyword)
+  "Return the type of KEYWORD."
+  (mtorus-utils-parse-key-cdr ':type (cdr-safe (assoc keyword mtorus-element))))
+
+(defun mtorus-element-property-keywords ()
+  ""
+  (mapcar #'car
+          (remove-if-not
+           #'(lambda (kw-type)
+               (mtorus-element-keyword-get-type (car kw-type)))
+           mtorus-element)))
+
+
+;; element specific operations
+(defun mtorus-element-keyword-type-put (keyword element value)
+  "Puts VALUE of ELEMENT to KEYWORD of TYPE."
+  (funcall
+   (mtorus-utils-symbol-conc
+    'mtorus-element-keyword-type 'put
+    (mtorus-utils-keyword->symbol keyword))
+   element value))
+
+(defun mtorus-element-keyword-type-get (keyword element &optional default)
+  "Gets the KEYWORD of TYPE from ELEMENT."
+  (funcall
+   (mtorus-utils-symbol-conc
+    'mtorus-element-keyword-type 'get
+    (mtorus-utils-keyword->symbol keyword))
+   element default))
+
 
 
 

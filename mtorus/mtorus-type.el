@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.6 2004/08/05 19:49:03 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.7 2004/08/09 01:11:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,7 +53,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.6 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.7 $"
   "Version of mtorus-type backend.")
 
 (defcustom mtorus-type-properties-alist
@@ -160,6 +160,58 @@ Do not fiddle with it.")
 
 (defvar mtorus-type-obarray nil
   "Obarray holding registered types.")
+
+
+;; I'm currently thinking of a more generic way to define types
+;; type definition should be in general merely memorizing the
+;; type properties
+;; `applications' or code that need some property of a type can
+;; ask the type's variable value then
+;;
+;; this would provide a nice interface to future code
+;;
+;; Example definition of a type then (for example for attachment settings)
+;; (define-mtorus-type ring
+;;   :allow-topology standard  ;; this allows the ring type to be part of the topology standard
+;;   :allow-topology mtorus16  ;; this allows the ring type to be part of the topology mtorus16
+;;   :allow-relation (standard parents buffer) ;; ring can be the parent of a buffer
+;;   :allow-relation (standard parents marker) ;; ring can be the parent of a marker
+;;   :allow-relation (standard parents ring)   ;; ring can be the parent of a ring
+;;   :allow-relation (standard siblings ring)   ;; ring can be the parent of a ring
+;;   ...
+;;   )
+
+
+(defun define-mtorus-type-keyword-action (name keyword action)
+  "Defines an mtorus-type-KEYWORD and some ACTION for it using NAME."
+  (or (boundp 'mtorus-type)
+      (defvar mtorus-type nil
+        "DOCUMENT ME!"))
+  (or (boundp 'mtorus-type-keyword-actions)
+      (defvar mtorus-type-keyword-actions nil
+        "DOCUMENT ME!"))
+  (set-alist 'mtorus-type-keyword-actions name action)
+  (set-alist 'mtorus-type keyword name))
+
+(defun mtorus-type-keyword-action-bouncer (name)
+  "Installs `define-mtorus-type-<KEYWORD-ACTION>' funs by using name."
+  (eval
+   `(defun ,(mtorus-utils-symbol-conc 'define-mtorus-type name)
+     (keyword action)
+     ,(format "Defines an mtorus-type %s-KEYWORD and some ACTION for it."
+              name)
+     (define-mtorus-type-keyword-action ',name keyword action))))
+
+(mtorus-type-keyword-action-bouncer 'property)
+(mtorus-type-keyword-action-bouncer 'method)
+(mtorus-type-keyword-action-bouncer 'hook)
+
+(define-mtorus-type-property :allow-topologies 'dunno)
+(define-mtorus-type-property :allow-relations 'dunno)
+(define-mtorus-type-method :predicate 'dunno)
+(define-mtorus-type-method :inherit-selection 'dunno)
+(define-mtorus-type-method :inherit-value 'dunno)
+(define-mtorus-type-method :alive-p 'dunno)
 
 
 (defmacro define-mtorus-type (name &rest properties)
@@ -386,7 +438,7 @@ Optional TYPE-FILTER limits this set to only certain types."
     (lambda (element)
       t)
 
-    :post-creation mtorus-attach-element-to-universe
+    ;;:post-creation mtorus-attach-element-to-universe
     ;;:post-selection
     )
 
@@ -403,7 +455,7 @@ Optional TYPE-FILTER limits this set to only certain types."
     buffer
     :predicate
     (lambda (element)
-      (bufferp (eval element)))
+      (bufferp (mtorus-element-get-value element)))
 
     :inherit-value
     (lambda (element)
@@ -411,13 +463,20 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :inherit-selection
     (lambda (element)
-      (switch-to-buffer (eval element)))
+      (switch-to-buffer (mtorus-element-get-value element)))
 
     :alive-p
     (lambda (element)
-      (buffer-live-p (eval element)))
+      (buffer-live-p (mtorus-element-get-value element)))
     
-    :post-creation mtorus-attach-element-to-current-ring
+    :post-creation
+    (lambda (element)
+      (mtorus-fake-attach-element-to-children-of-ring
+       element (mtorus-fake-attach-get-current-ring-interactive)
+       #'(lambda (elements)
+           (append (mtorus-type-filter 'buffer elements)
+                   (mtorus-type-filter 'marker elements))))
+      (mtorus-element-set-current element))
 
     :pre-selection
     (lambda (element)
@@ -426,15 +485,6 @@ Optional TYPE-FILTER limits this set to only certain types."
         ;;(mtorus-element-detach element)
         )))
 
-  (add-hook 'mtorus-type-buffer-post-creation-funs
-            #'(lambda (element)
-                (mtorus-fake-attach-element-to-children-of-ring
-                 element (mtorus-fake-attach-get-current-ring)
-                 #'(lambda (elements)
-                     (append (mtorus-type-filter 'buffer elements)
-                             (mtorus-type-filter 'marker elements))))
-                (mtorus-element-set-current element)))
-
 
 
   ;; classic mtorus-1.6 marker simulation
@@ -442,7 +492,7 @@ Optional TYPE-FILTER limits this set to only certain types."
     marker
     :predicate
     (lambda (element)
-      (markerp (eval element)))
+      (markerp (mtorus-element-get-value element)))
 
     :inherit-value
     (lambda (element)
@@ -450,16 +500,26 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :inherit-selection
     (lambda (element)
-      (let ((buf (marker-buffer (eval element))))
+      (let ((buf (marker-buffer (mtorus-element-get-value element))))
         (with-current-buffer buf
-          (goto-char (marker-position (eval element))))
+          (goto-char (marker-position (mtorus-element-get-value element))))
         (switch-to-buffer buf)))
 
     :alive-p
     (lambda (element)
-      (buffer-live-p (marker-buffer (eval element))))
+      (buffer-live-p (marker-buffer (mtorus-element-get-value element))))
 
-    :post-creation mtorus-attach-element-to-current-ring
+    :post-creation
+    (lambda (element)
+      (mtorus-fake-attach-element-to-children-of-element
+       element (cond ((or (mtorus-type-buffer-p mtorus-current-element)
+                          (mtorus-type-ring-p mtorus-current-element))
+                      mtorus-current-element)
+                     (t (mtorus-fake-attach-get-current-ring-interactive)))
+       #'(lambda (elements)
+           (append (mtorus-type-filter 'buffer elements)
+                   (mtorus-type-filter 'marker elements))))
+      (mtorus-element-set-current element))
 
     :pre-selection
     (lambda (element)
@@ -467,18 +527,6 @@ Optional TYPE-FILTER limits this set to only certain types."
         ;;(mtorus-element-set-current (mtorus-determine-parent-element element))
         ;;(mtorus-element-detach element)
         )))
-
-  (add-hook 'mtorus-type-marker-post-creation-funs
-            #'(lambda (element)
-                (mtorus-fake-attach-element-to-children-of-element
-                 element (cond ((or (mtorus-type-buffer-p mtorus-current-element)
-                                    (mtorus-type-ring-p mtorus-current-element))
-                                mtorus-current-element)
-                               (t (mtorus-fake-attach-get-current-ring)))
-                 #'(lambda (elements)
-                     (append (mtorus-type-filter 'buffer elements)
-                             (mtorus-type-filter 'marker elements))))
-                (mtorus-element-set-current element)))
 
   ;; furthermore there should be some usre customization here,
   ;; im talking about mtorus-type-auto-register-at-topology-p or something
@@ -493,24 +541,7 @@ Optional TYPE-FILTER limits this set to only certain types."
   (interactive)
   (mapc 'undefine-mtorus-type mtorus-types))
 
-;; I'm currently thinking of a more generic way to define types
-;; type definition should be in general merely memorizing the
-;; type properties
-;; `applications' or code that need some property of a type can
-;; ask the type's variable value then
-;;
-;; this would provide a nice interface to future code
-;;
-;; Example definition of a type then (for example for attachment settings)
-;; (define-mtorus-type ring
-;;   :allow-topology standard  ;; this allows the ring type to be part of the topology standard
-;;   :allow-topology mtorus16  ;; this allows the ring type to be part of the topology mtorus16
-;;   :allow-relation (standard parents buffer) ;; ring can be the parent of a buffer
-;;   :allow-relation (standard parents marker) ;; ring can be the parent of a marker
-;;   :allow-relation (standard parents ring)   ;; ring can be the parent of a ring
-;;   :allow-relation (standard siblings ring)   ;; ring can be the parent of a ring
-;;   ...
-;;   )
+
 
 
 (run-hooks 'mtorus-type-after-load-hook)

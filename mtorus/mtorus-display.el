@@ -1,5 +1,5 @@
 ;;; mtorus-display.el --- display functions of the mtorus
-;; $Id: mtorus-display.el,v 1.3 2004/08/05 19:49:02 hroptatyr Exp $
+;; $Id: mtorus-display.el,v 1.4 2004/08/09 01:11:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-display-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-display-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-display backend.")
 
 
@@ -365,18 +365,23 @@ The variable's value is replaced by the function result then."
   (interactive)
   (let* ((varfun (eval
                   (cdr-safe (assoc 'element mtorus-display-variable-transformation-map))))
-         (curelt (funcall
-                  varfun mtorus-current-element))
-         (siblings (mapcar varfun (mtorus-topology-standard-siblings mtorus-current-element)))
+         (curelt mtorus-current-element)
+         (siblings (mtorus-topology-standard-siblings mtorus-current-element))
+         (siblsort (mtorus-order-by-age siblings))
          (msgstr (with-temp-buffer
-                   (insert (mapconcat #'identity siblings " "))
-                   (goto-char (point-min))
-                   (save-match-data
-                     (and (search-forward curelt nil t)
-                          (set-text-properties (match-beginning 0) (match-end 0) '(face mtorus-highlight-face))
-                          ;;(replace-match (concat ">" curelt))
-                          )
-                     (buffer-string)))))
+                   (mapc #'(lambda (elem)
+                             (let ((felem (funcall varfun elem))
+                                   (pbeg (point)))
+                               (insert (format "%s" felem))
+                               (cond ((equal elem curelt)
+                                      (save-excursion
+                                        (set-text-properties
+                                         pbeg
+                                         (point)
+                                         '(face mtorus-highlight-face)))))
+                               (insert "  ")))
+                         siblsort)
+                     (buffer-string))))
     (cond ((fboundp 'display-message)
            (display-message 'no-log msgstr))
           (t

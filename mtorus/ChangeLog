@@ -1,3 +1,36 @@
+2004-08-09  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-topology.el:
+	- fixed order-by-age issue (supports abstract element keyword handlers now)
+
+	* mtorus-element.el:
+	- fixed the obarray bug in mtorus-element-obarray-names
+
+	* mtorus-display.el:
+	- fixed XEmacs echo area display (replaced search-forward more wise)
+
+	* mtorus-utils.el:
+	- moved element keyword handlers here (to abstract them)
+	further commits will have these handlers for type and topology, too.
+
+
+2004-08-08  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el:
+	- navigation now supports orders (mtorus-default-order)
+
+	* mtorus-topology.el:
+	- new fake-attach code
+	- added `mtorus-topology-<TOPO>-define-<NEIGHBORHOOD>-family' functions
+
+	* mtorus-type.el:
+	- predefined types respect the new attach code
+
+	* mtorus-element.el:
+	- revised element creation and handling
+	elements are not symbols anymore, instead they're saved in a container
+
+
 2004-08-05  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus.el:

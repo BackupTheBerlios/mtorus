@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.16 2004/08/05 19:49:03 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.17 2004/08/09 01:11:44 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.0 $Revision: 1.16 $"
+(defconst mtorus-version "2.1 $Revision: 1.17 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -38,20 +38,8 @@
 ;; lines until the MTorus 2.0 is stable at last.
 ;; For information on how to fiddle with the new frontend/backend stuff
 ;; you can visit the EmacsWiki page listed below
-;;
-;; FIXMEs
-;;  - DELETION IS NOT WORKING ATM
-;;  - generic interface for special lists, because currently the
-;;    (only) special list (buffer list) behaviour is hard coded in a
-;;    way that's probably not sensible for lists like recent-files or
-;;    the like
-;;  - handling of invalid markers
-;;    -> (don't display, quietly discard?)
-;;    -> the correct while-loop which deletes invalid in
-;;    mtorus-jump-current-marker or mtorus-current-buffer
-;;    -> what happens when a buffer is reverted (or killed and
-;;    reopened)?
-;; MTorus on the Web:
+
+;;; MTorus on the Web:
 ;; Main page:
 ;; http://mtorus.berlios.de
 ;; Stefan's pages:
@@ -64,7 +52,19 @@
 ;; http://developer.berlios.de/projects/mtorus
 ;; EmacsWiki page:
 ;; http://www.emacswiki.org/wiki.pl?MTorus
-;;
+
+;;; ToDo:
+;;  - DELETION IS ONLY HALF WORKING ATM
+;;  - generic interface for special lists, because currently the
+;;    (only) special list (buffer list) behaviour is hard coded in a
+;;    way that's probably not sensible for lists like recent-files or
+;;    the like
+;;  - handling of invalid markers
+;;    -> (don't display, quietly discard?)
+;;    -> the correct while-loop which deletes invalid in
+;;    mtorus-jump-current-marker or mtorus-current-buffer
+;;    -> what happens when a buffer is reverted (or killed and
+;;    reopened)?
 
 ;;; Getting Started
 ;;  ===============
@@ -113,10 +113,17 @@
 ;;   mtorus-child-element respectively -- [[hroptatyr]]
 ;;   For selection of an element I user H-kp-5
 ;; - I prefer shift -left/right/up/down -- StefanKamphausen
+;;
+;;
+;; To see some of the modularized external stuff in action put
+;;
+;;     (require 'mtorus-auto-rings)
+;;
+;; in your .emacs. :D
 
 
-;;; Usage:
-;;  ======
+;;; Usage: (still recent, since everything tries to emulate mtorus-1.6)
+;;  ===================================================================
 ;; MTorus lets you work with several groups of buffers, each group
 ;; being a separate ring.  This is all for easier navigation through
 ;; buffers.  I've been using some buffer cycling functions on (shift
@@ -175,30 +182,50 @@
 ;; using a Torus here.  Hence the name: "mtorus": mark-torus.
 ;; (A "group" will usually be referred to as a "ring" from now.)
 
-;;; History
-;; Just as many other people I have once (co-)written a buffer cycling
-;; mechanism, that was later expanded to using a skipping
-;; predicate.  At some point it wasn't enough anymore and I still had
-;; the question nagging: what could I possible do with Shift Up and
-;; Down? Then I discovered that I often used several buffers in one
-;; context (and they were not neighbors on the buffer-list).  This made
-;; me think of groups of buffers and led to a first implementation
-;; under the name "session-stack.el".  Then it occurred to me that I
-;; wanted to navigate different positions in the same buffer with it
-;; and expanded the code.  Sometimes I wondered that those hotspots
-;; seemed to move around until I read a chapter about markers in the
-;; elisp info file and suddenly I understood that the points I stored
-;; were not moving together with the text.  During that rewrite I
-;; renamed the whole thing to mtorus reflecting the topology of the
-;; main data structure.  All this happened during autumn and winter of
-;; 2002.  In early 2003 I came across swbuff.el which had a very nice
-;; popup window feature that I definetely admired and wanted to
-;; have.  It became clear that a full rewrite had to be done once again
-;; because the code (which was then just released to the public one
-;; week ago) had become quite a mess.  The time of this writing is
-;; right during that rewrite.  Why I tell this all here? Hm, probably
-;; mainly for myself to remember when I'm grey and old (and still be
-;; using XEmacs ;-)
+;;; History:
+;;  ========
+;; - Waaaay back in time:
+;;   Just as many other people I (Stefan Kamphausen) have once (co-)written a
+;;   buffer cycling mechanism, that was later expanded to using a skipping
+;;   predicate.
+;;   At some point it wasn't enough anymore and I still had
+;;   the question nagging: what could I possible do with Shift Up and Down?
+;;   Then I discovered that I often used several buffers in one context
+;;   (and they were not neighbors on the buffer-list). This made me think
+;;   of groups of buffers and led to a first implementation under the name
+;;   "session-stack.el".
+;;
+;; - Winter 2002:
+;;   Then it occurred to me that I wanted to navigate different positions
+;;   in the same buffer with it and expanded the code. Sometimes I wondered
+;;   that those hotspots seemed to move around until I read a chapter about
+;;   markers in the elisp info file and suddenly I understood that the points
+;;   I stored were not moving together with the text.
+;;   During that rewrite I renamed the whole thing to mtorus reflecting the
+;;   topology of the main data structure.
+;;
+;; - Early 2003:
+;;   I came across swbuff.el which had a very nice popup window feature that
+;;   I definetely admired and wanted to have. It became clear that a full
+;;   rewrite had to be done once again because the code (which was then just
+;;   released to the public one week ago) had become quite a mess.
+;;
+;; - November 2003: 
+;;   The MTorus project turned once more to public interest. This time I
+;;   (Sebastian Freundt) wanted a more generic implementation and some kind of
+;;   API because I wanted to implement something like a `auto-mtorus' which
+;;   grows automagically on some defined ruleset of mine.
+;;
+;; - Early 2004:
+;;   Asking Stefan if he's still actively contributing to the project he nayed.
+;;   When I told him about my intentions new enthusiasm has been grown.
+;;   We opened a project at berlios.de and started to revise the code.
+;;   This is where we are currently in the time line.
+;;   The project is still open for other contributors and developers.
+;;
+;; Why I tell this all here? Hm, probably mainly for myself to remember when
+;; I'm grey and old -- and still be using XEmacs ;-) -- Stefan
+
 
 ;;; Code:
 (eval-when-compile
@@ -249,7 +276,8 @@ find good settings for many people."
 
 ;;; REVISE ME!!
 (defcustom mtorus-init-ring-emtpy nil
-  "*Whether to create a new ring with a marker at point."
+  "*Whether to create a new ring with a marker at point.
+You will see this not in action atm."
   :type 'boolean
   :group 'mtorus)
 
@@ -322,7 +350,7 @@ This is an ALPHA feature."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; AutoAttach elements per-type to the topology network 
 (defcustom mtorus-auto-attach-p t
-  "Whether to use auto attaching.
+  "*Whether to use auto attaching.
 We will define later what this actually means."
   :group 'mtorus)
 
@@ -407,6 +435,8 @@ Special care for CUA users is taken."
 is to skip only the special buffers whose name begins with a space."
   (string-match "[ ]+" (buffer-name buffer)))
 
+;;; REVISE ME!
+;; this is code you will find in two minutes in the auto-rings.el
 (defcustom mtorus-buffer-list-name "*buffer-list*"
   "The name of the ring that always contains all open buffers.
 Cycling within this ring is different from cycling the others since it
@@ -414,6 +444,7 @@ always uses the real buffer list.  It skips all buffers that
 `mtorus-buffer-skip-p' returns t for and is not editable."
   :type 'string
   :group 'mtorus)
+
 
 ;; Variables
 (defvar mtorus-torus nil ;; obsolete?
@@ -447,6 +478,8 @@ For convenience:
 - the parent of a torus is the parent of this torus seen as ring
 - there is exactly one ring that has no parents nor siblings:
   the universe.
+  \(Actually the parents and siblings of the universe in the sense
+  of the 'standard topology is the universe itself\)
 
 The universe will dynamically extend when you try to create siblings
 for it (as we cannot represent a real universe).")
@@ -463,6 +496,7 @@ added to the universe."
   :group 'mtorus)
 
 
+;;; interactive hooks
 (defcustom mtorus-create-element-pre-hook nil
   "Hook run before an element is about to be created interactively.
 Note there's an equivalent hook `mtorus-element-pre-creation-hook'
@@ -497,19 +531,6 @@ which is always run."
 
 
 
-
-
-;; Testing function
-;(defun tt ()
-;  ""
-;  (interactive)
-;  (setq debug-on-error t)
-;  (mtorus-init)
-;  (mtorus-new-ring "ring1")
-;  (forward-line)
-;  (mtorus-new-marker)
-;  (describe-variable 'mtorus-torus)
-;  )
 
 
 ;; Commands
@@ -565,7 +586,7 @@ The auto-rings will be set up by running
   '((ring . "")
     (buffer . #'buffer-name)
     (marker . (format "%s#%s" (buffer-name) (point))))
-  "Names used as defaults when creating elements.
+  "*Names used as defaults when creating elements.
 This is an alist of \(type . default-name-function-or-string\)."
   :group 'mtorus)
 
@@ -607,14 +628,14 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
      (list type name)))
   (run-hook-with-args 'mtorus-create-element-pre-hook type name)
   (let ((element
-         (mtorus-element-create
-          :type type
-          :name name
-          :value (mtorus-type-inherit-value type name)
-          :description "User defined mtorus-element"
-          :variable-documentation
-          (format "Manually generated mtorus element of type %s." type))))
-    (mtorus-element-register element)
+         (define-mtorus-element
+           (make-mtorus-element
+            :type type
+            :name name
+            :value (mtorus-type-inherit-value type name)
+            :description "User defined mtorus-element"
+            :variable-documentation
+            (format "Manually generated mtorus element of type %s." type)))))
     (run-hook-with-args 'mtorus-create-element-post-hook element)
     (mtorus-display-message
      message
@@ -816,21 +837,8 @@ elements to only those of a certain type."
 
 
 
-;; old 1.6
-;; (defun mtorus-delete-ring (&optional ring-name)
-;;   "Delete the ring with name RING-NAME.
-;; If none is given it is asked from the user."
-;;   (interactive)
-;;   (let ((rname (or ring-name (mtorus-ask-ring))))
-;;     (if (not (mtorus-special-ringp rname))
-;;         (if (y-or-n-p (format "delete ring \"%s\"? " rname))
-;;             (setq mtorus-torus
-;;                   (delete* rname mtorus-torus :key 'car
-;;                            :test 'equal)))
-;;       (mtorus-message "can't delete special rings"))))
-
-
-;; old 1.6
+;; old 1.6 
+;;; CONVERT ME!
 ;; (defun mtorus-rename-ring (&optional ring-name new-name)
 ;;   "Rename RING-NAME to NEW-NAME asking if omitted."
 ;;   (interactive)
@@ -840,27 +848,6 @@ elements to only those of a certain type."
 ;;     (if (not (mtorus-special-ringp rname))
 ;;         (setcar (assoc rname mtorus-torus) nname)
 ;;       (mtorus-message "can't rename special rings"))))
-
-;; old 1.6
-;; (defun mtorus-switch-to-ring (ring-name &optional quiet)
-;;   "Make RING-NAME the current ring."
-;;   (while (not (mtorus-current-ringp ring-name))
-;;     (mtorus-rotate-rings 1))
-;;   (unless quiet (mtorus-notify)))
-
-;; old 1.6
-;; (defun mtorus-next-ring ()
-;;   "Make the next ring on the torus the current ring."
-;;   (interactive)
-;;   (mtorus-switch-to-ring (mtorus-nth-ring-name 1)))
-
-;; old 1.6
-;; (defun mtorus-prev-ring ()
-;;   "Make the next ring on the torus the current ring."
-;;   (interactive)
-;;   (mtorus-switch-to-ring
-;;    (mtorus-nth-ring-name (1- (length mtorus-torus)))))
-
 
 
 ;; ;; Marker
@@ -879,7 +866,7 @@ elements to only those of a certain type."
 ;;         )
 ;;     (mtorus-message "can't edit special lists")))
 ;; 
-;; 
+;;; CONVERT ME!!
 ;; (defun mtorus-rename-current-ring (&optional ring-name new-name)
 ;;   "Rename RING-NAME to NEW-NAME asking if omitted."
 ;;   (interactive)
@@ -915,24 +902,6 @@ elements to only those of a certain type."
 ;;                     (point))
 ;;         ring)))
 ;; 
-;; (defun mtorus-next-marker ()
-;;   "Switch to the next marker in the current ring.
-;; Handles special rings different like cycling the buffer list when the
-;; current's ring name is equal to `mtorus-buffer-list-name'."
-;;   (interactive)
-;;   (if (mtorus-special-ringp (mtorus-current-ring-name))
-;;       (mtorus-blist-next)
-;;     (mtorus-rotate-entries 0 1))
-;;   (mtorus-jump-current-marker))
-;; (defalias 'mtorus-next-entry 'mtorus-next-marker)
-;; 
-;; (defun mtorus-prev-marker ()
-;;   (interactive)
-;;   (if (mtorus-special-ringp (mtorus-current-ring-name))
-;;       (mtorus-blist-prev)
-;;     (mtorus-rotate-entries 0 -1))
-;;   (mtorus-jump-current-marker))
-;; (defalias 'mtorus-prev-entry 'mtorus-prev-marker)
 
 
 
@@ -942,23 +911,23 @@ elements to only those of a certain type."
 ;;; new generation navigation
 
 (defcustom mtorus-next-element-function #'1+
-  "Fun used to determine the successor of an element.
+  "*Fun used to determine the successor of an element.
 Note this is invariant under the current topology."
   :group 'mtorus
   :type 'function-name)
 (defcustom mtorus-prev-element-function #'1-
-  "Fun used to determine the predecessor of an element.
+  "*Fun used to determine the predecessor of an element.
 Note this is invariant under the current topology."
   :group 'mtorus
   :type 'function-name)
 (defcustom mtorus-parent-element-function #'car
-  "Fun used to determine the parent of a torus element."
+  "*Fun used to determine the parent of a torus element."
   :group 'mtorus
   :type 'function-name)
 (defcustom mtorus-child-element-function
   #'(lambda (elements)
       (car-safe (remove 'mtorus-universe elements)))
-  "Fun used to determine the child a torus element."
+  "*Fun used to determine the child a torus element."
   :group 'mtorus
   :type 'function-name)
 
@@ -970,8 +939,7 @@ Optional NEIGHBOR-FUNCTION measures distances between the neighbor element.
 
 The element symbol is returned."
   ;; REVISE ME!!!
-  ;; at the moment this fun does not
-  ;; respect orders
+  ;; this function is blind for anything else than siblings
   (let* ((nhlen (length elements))
          (othelt
           (and (< 0 nhlen)
@@ -983,44 +951,52 @@ The element symbol is returned."
 (defun mtorus-determine-next-element (element)
   "Determines the next element on the current ring.
 See `mtorus-next-element-function' on how to determine this."
-  (let* ((nextelt (mtorus-determine-neighbor-elements
-                   (mtorus-topology-neighborhood
-                    mtorus-current-topology
-                    'siblings
-                    element)
+  (let* ((orderfun mtorus-default-order)
+         (nextelt (mtorus-determine-neighbor-elements
+                   (funcall orderfun
+                            (mtorus-topology-neighborhood
+                             mtorus-current-topology
+                             'siblings
+                             element))
                    element
                    mtorus-next-element-function)))
     (or nextelt element)))
 (defun mtorus-determine-prev-element ( element)
   "Determines the previous element on the current torus.
 See `mtorus-prev-element-function' on how to determine this."
-  (let* ((prevelt (mtorus-determine-neighbor-elements
-                   (mtorus-topology-neighborhood
-                    mtorus-current-topology
-                    'siblings
-                    element)
+  (let* ((orderfun mtorus-default-order)
+         (prevelt (mtorus-determine-neighbor-elements
+                   (funcall orderfun
+                            (mtorus-topology-neighborhood
+                             mtorus-current-topology
+                             'siblings
+                             element))
                    element
                    mtorus-prev-element-function)))
     (or prevelt element)))
 (defun mtorus-determine-parent-element (element)
   "Determines the next element on the current ring.
 See `mtorus-next-element-function' on how to determine this."
-  (let* ((parent
+  (let* ((orderfun mtorus-default-order)
+         (parent
           (funcall mtorus-parent-element-function
-                   (mtorus-topology-neighborhood
-                    mtorus-current-topology
-                    'parents
-                    element))))
+                   (funcall orderfun
+                            (mtorus-topology-neighborhood
+                             mtorus-current-topology
+                             'parents
+                             element)))))
     (or parent 'mtorus-universe)))
 (defun mtorus-determine-child-element (element)
   "Determines the previous element on the current torus.
 See `mtorus-prev-element-function' on how to determine this."
-  (let* ((child
+  (let* ((orderfun mtorus-default-order)
+         (child
           (funcall mtorus-child-element-function
-                   (mtorus-topology-neighborhood
-                    mtorus-current-topology
-                    'children
-                    element))))
+                   (funcall orderfun
+                            (mtorus-topology-neighborhood
+                             mtorus-current-topology
+                             'children
+                             element)))))
     (or child element)))
 
 
@@ -1289,6 +1265,7 @@ Selection can be done by:
 ;;         (helper ret-list (cdr rest)))))
 ;;   (helper '() l))
 
+
 
 ;; Backend Level Functions
 ;; (defun mtorus-initial-ring-contents (ring-name)
@@ -1326,82 +1303,9 @@ Selection can be done by:
 ;;             (append (last mtorus-torus)
 ;;                     (butlast (car mtorus-torus))))
 ;;       (setq amount (1+ amount)))))
-;; 
-;; 
-;; ;; Ring Accessors
-;; (defun mtorus-current-ring-name ()
-;;   "Return a string containing the name of the current ring."
-;;   (mtorus-nth-ring-name 0))
-;; 
-;; (defun mtorus-nth-ring-name (nth)
-;;   "Return a string containing the name of the NTH ring on the torus.
-;; For the current entry NTH is 0 and for the last NTH is length -1."
-;;   (car (elt mtorus-torus (% nth (length mtorus-torus)))))
-;; 
-;; (defun mtorus-ring-names ()
-;;   "Return a list of all available ring names as strings."
-;;   (mapcar 'car mtorus-torus))
-;; 
-;; (defun mtorus-current-ring ()
-;;   "Return the current ring as a list.
-;; The current ring is always the CDR of the 0th in the list."
-;;   (first mtorus-torus))
-;; 
-;; (defun mtorus-ring-by-name (ring-name)
-;;   "Return the ASSOC of NAME in `mtorus-torus'."
-;;   (assoc ring-name mtorus-torus))
-;; 
-;; (defun mtorus-add-to-ring (ring-name marker)
-;;   "Put MARKER on the ring named RING-NAME."
-;;   (let ((ring (mtorus-ring-by-name ring-name)))
-;;     (setf (second ring)
-;;           (cons marker
-;;                 (second ring)))))
-;; 
-;; ;; Entry Accessors
-;; (defun mtorus-current-entry-string ()
-;;   "Return a string containing a description of the current entry."
-;;   (mtorus-entry-to-string (mtorus-current-marker)))
-;; 
-;; (defun mtorus-entry-to-string (marker)
-;;   "Return a stringified description of MARKER."
-;;   (if (buffer-live-p (marker-buffer marker))
-;;     (format "%s@%d"
-;;             (buffer-name (marker-buffer marker))
-;;             (marker-position marker))
-;;     "*del*"))
-;; 
-;; (defun mtorus-current-marker ()
-;;   "Return the current marker in the current ring."
-;;   (if (mtorus-special-ringp (mtorus-current-ring-name))
-;;     ;; FIXME: good enough for GC?
-;;       (point-marker)
-;;     (first (second (first mtorus-torus)))))
-;; 
-;; (defun mtorus-current-pos ()
-;;   "Return the current entry's position in the buffer."
-;;   (marker-position (mtorus-current-marker)))
-;; 
-;; (defun mtorus-current-buffer ()
-;;   "Return the current entry's buffer."
-;;   (marker-buffer (mtorus-current-marker)))
-;; 
-;; ;; Predicates
-;; (defun mtorus-current-ringp (ring-name)
-;;   "Return non-nil if RING-NAME is the current ring.
-;; That is if it is first on the torus."
-;;  (string-equal (mtorus-current-ring-name) ring-name))
-;; 
-;; (defun mtorus-special-ringp (ring-name)
-;;   "Return non-nil if the ring-name looks like a special ring.
-;; By convention special ring names begin with a '*'."
-;;   (char-equal ?* (elt ring-name 0)))
-;; 
-;; (defun mtorus-ringp (ring-name)
-;;   "Return non-nil if ring-name is found on `mtorus-torus'."
-;;   (and (stringp ring-name)
-;;        (assoc ring-name mtorus-torus)))
-;; 
+
+
+
 ;; (defun mtorus-maybe-install-kill-hook ()
 ;;   "Install some functions on the `kill-emacs-hook' according to custom
 ;;   settings and assuring no duplicates."
