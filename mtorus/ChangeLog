@@ -1,3 +1,9 @@
+2004-07-02  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-element.el: cleansed some docstrings, made 
+	`mtorus-type-hooks-alist' customizable.
+
+
 2004-07-01  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-element.el: second (even more abstract) approach to

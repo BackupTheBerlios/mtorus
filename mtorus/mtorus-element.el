@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.1 2004/07/01 22:58:30 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.2 2004/07/01 23:57:27 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -70,8 +70,16 @@
   :tag "MTorus"
   :prefix "mtorus-element-"
   :group 'mtorus)
+(defgroup mtorus-type nil
+  "The types of elements."
+  :tag "MTorus"
+  :prefix "mtorus-type-"
+  :group 'mtorus)
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.1 $"
+
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.2 $"
+  "Version of mtorus-element backend.")
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.2 $"
   "Version of mtorus-element backend.")
 
 (defvar mtorus-elements-hash-table 'mtorus-elements
@@ -220,7 +228,7 @@ will be in the result list."
 ;;;
 ;;; Types of ring elements
 ;;;
-(defvar mtorus-type-keyword-handler-alist
+(defcustom mtorus-type-hooks-alist
   '((predicate . p)
     (pre-addition . pre-addition-funs)
     (post-addition . post-addition-funs)
@@ -230,24 +238,58 @@ will be in the result list."
     (post-selection . post-seletion-funs)
     (pre-deselection . pre-deselection-funs)
     (post-deselection . post-deselection-funs))
-  "Alist of ...
+  "Alist of hook specifiers and corresponding hooks to be
+added in the form `mtorus-type-<NAME>-<HOOKNAME>'.
 
-  :predicate-fun -- predicate function(s) to validate new elements of 
-    this type. If not provided make sure you have installed some defun
-    `mtorus-type-NAME-p' to validate an mtorus-element of type NAME.
+Entries look like
+  \(hook-specifier . hook-name\)
 
-  :on-addition-fun -- function(s) to be called when something is added
-    to this type.
-  :on-deletion-fun -- function(s) to be called when something is deleted
-    from this type.
+Some of these are essential for MTorus and listed here:
 
-  :on-select-fun -- function(s) to be called when an element of this type
-    is selected.
-  :on-deselect-fun -- function(s) to be called when an element of this type
-    is deselected")
+- predicate
+predicate function(s) to validate elements.
+Any of these function(s) should return `non-nil' iff element
+is of the specified type
+
+- pre-addition
+function(s) to be called just before some element of the
+specified type is added
+
+- post-addition
+function(s) to be called after some element of the
+specified type has been added
+
+- pre-selection
+function(s) to be called just before some element of this type
+is selected.
+
+- post-selection
+function(s) to be called after some element of this type
+has been selected.
+
+- pre-deselection
+function(s) to be called just before some element of this type
+is deselected (i.e. another element is selected).
+This hook is actually almost the same as pre-selection but
+it is called with the `old' element in contrast
+
+- post-deselection
+function(s) to be called after some element of this type
+has been deselected (i.e. another element is selected).
+This hook is actually almost the same as post-selection but
+it is called with the `old' element in contrast
+
+
+You will realize that exactly the actions in between the pre- and post-
+hooks are the hook actions run by mtorus-element elements."
+  :group 'mtorus-type)
+
 
 (defvar mtorus-types nil
-  "List of available types.")
+  "List of available types.
+This is for internal purposes only.
+Do not fiddle with it.")
+
 
 (defmacro define-mtorus-element-type (name &rest properties)
   "Define an element type for mtorus-torii.
@@ -255,7 +297,7 @@ NAME is the name of the type and
 PROPERTIES is a list of property names as keywords that describe
 the type in detail.
 
-Valid keywords are taken from the `mtorus-type-keyword-handler-alist'
+Valid keywords are taken from the `mtorus-type-hooks-alist'
 For each of those keywords listed there this macro provides both a
 function definition and a variable symbol that hold values given by
 the according values in PROPERTIES.
@@ -279,7 +321,7 @@ See `mtorus-alter-element-type'."
 Each function is called with argument ELEMENT."
                           expanded-type-name)
                  (run-hook-with-args ',expanded-type-name element)))))
-        mtorus-type-keyword-handler-alist)
+        mtorus-type-hooks-alist)
   (eval `(mtorus-alter-element-type ,name ,@properties))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 (defalias 'mtorus-define-element-type 'define-mtorus-element-type)
@@ -289,12 +331,12 @@ Each function is called with argument ELEMENT."
   (if (member name mtorus-types)
       (mapc #'(lambda (handler)
                 (let* ((hname (car handler))
-                       (hhook (cdr (assoc hname mtorus-type-keyword-handler-alist)))
+                       (hhook (cdr (assoc hname mtorus-type-hooks-alist)))
                        (expanded-type-name
                         (mtorus-utils-symbol-conc 'mtorus-type name hhook))
                        (fun (cdr handler)))
                   (add-hook expanded-type-name fun)))
-            (mtorus-utils-parse-spec properties (mapcar 'car mtorus-type-keyword-handler-alist)))
+            (mtorus-utils-parse-spec properties (mapcar 'car mtorus-type-hooks-alist)))
     (mtorus-define-element-type name properties))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
@@ -304,7 +346,7 @@ NAME is the name of the type and
 PROPERTIES is a list of property names as keywords that describe
 the type in detail.
 
-Valid keywords are taken from the `mtorus-type-keyword-handler-alist'
+Valid keywords are taken from the `mtorus-type-hooks-alist'
 For each of those keywords listed there this macro provides both a
 function definition and a variable symbol that hold values given by
 the according values in PROPERTIES."
@@ -321,7 +363,7 @@ the according values in PROPERTIES."
                `(makunbound ,expanded-type-name))
               (eval
                `(fmakunbound ,expanded-type-fun-name))))
-        mtorus-type-keyword-handler-alist)
+        mtorus-type-hooks-alist)
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 (defalias 'mtorus-undefine-element-type 'undefine-mtorus-element-type)
 
@@ -330,12 +372,12 @@ the according values in PROPERTIES."
   (when (member name mtorus-types)
     (mapc #'(lambda (handler)
               (let* ((hname (car handler))
-                     (hhook (cdr (assoc hname mtorus-type-keyword-handler-alist)))
+                     (hhook (cdr (assoc hname mtorus-type-hooks-alist)))
                      (expanded-type-name
                       (mtorus-utils-symbol-conc 'mtorus-type name hhook))
                      (fun (cdr handler)))
                 (remove-hook expanded-type-name fun)))
-          (mtorus-utils-parse-spec properties (mapcar 'car mtorus-type-keyword-handler-alist))))
+          (mtorus-utils-parse-spec properties (mapcar 'car mtorus-type-hooks-alist))))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
 
