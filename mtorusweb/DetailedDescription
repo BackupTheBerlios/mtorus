@@ -8,12 +8,14 @@ This is a rather detailed documentation sketch.
 You may want to see it as our mnemonic to the stuff we've hacked so far.
 
 In the near term future there will also be a texinfo documentation.
+(Actually this pa
 
 - [[DetailedDescription#whatis][What is MTorus]]
 - [[DetailedDescription#backend][The MTorus backend]]
 - [[DetailedDescription#types][The MTorus types]]
 - [[DetailedDescription#elements][The MTorus elements]]
 - [[DetailedDescription#topologies][The MTorus topology]]
+- [[DetailedDescription#state][MTorus state]]
 
 
 #whatis
@@ -299,6 +301,13 @@ aunt of an element is its brother.
 *** Auto-Attaching
 
 *** Orders
+
+
+#state
+** MTorus state
+
+MTorus state functions allow you to dump a torus to a file or re-establish a torus from a file.
+
 
 
 
