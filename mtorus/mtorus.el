@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.28 2004/09/14 19:06:45 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.29 2004/09/15 06:33:33 ska Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.2 $Revision: 1.28 $"
+(defconst mtorus-version "2.2 $Revision: 1.29 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -373,10 +373,8 @@ This is an ALPHA feature."
   "This sets the key-bindings that I (Stefan Kamphausen) consider useful.
 The bindings don't not fulfill the requirements of good key-defining
 but I like it and I provide it only as a convenience function.
-
 Special care for CUA users is taken."
   (interactive)
-  (message "installed")
 
   ;;; old 1.6, but compatible
   (cond
@@ -448,13 +446,15 @@ Special care for CUA users is taken."
 
 ;; navigating selects the element
 (defun mtorus-enable-select-follows-choose ()
-  ""
+  "Use this to make mtorus automatically display a selected item.
+Use `mtorus-disable-select-follows-choose' to turn it off."
   (interactive)
   (add-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
   (add-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
   (message "select follows choose"))
+
 (defun mtorus-disable-select-follows-choose ()
-  ""
+  "See `mtorus-enable-select-follows-choose'."
   (interactive)
   (remove-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
   (remove-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
@@ -462,32 +462,44 @@ Special care for CUA users is taken."
 
 ;; dead elements are resurrected
 (defun mtorus-behaviour-select-resurrects-dead (element)
-  ""
+  "MTorus automatically opens files for selected items.
+Whenever an item is selected and the according file for it is not
+currently available it will be reopened.  This feature can be used in
+conjunction with the saving of the mtorus to get an ever growing map
+of all your files and positions.
+Use `mtorus-enable-select-resurrects-dead' to turn it on.
+Use `mtorus-disable-select-resurrects-dead' to turn it off."
   (unless (mtorus-element-alive-p element)
     (mtorus-element-resurrect element)))
+
 (defun mtorus-enable-select-resurrects-dead ()
-  ""
+  "Enables `mtorus-behaviour-select-resurrects-dead'.
+Use `mtorus-disable-select-resurrects-dead' to turn it off."
   (interactive)
   (add-hook 'mtorus-select-element-pre-hook 'mtorus-behaviour-select-resurrects-dead)
   (message "select resurrects dead"))
+
 (defun mtorus-disable-select-resurrects-dead ()
-  ""
+  "Disables `mtorus-behaviour-select-resurrects-dead'.
+Use `mtorus-enable-select-resurrects-dead' to turn it on."
   (interactive)
   (remove-hook 'mtorus-select-element-pre-hook 'mtorus-behaviour-select-resurrects-dead)
   (message "select resurrects dead ... off"))
 
 ;; creating a ring, also creates a buffer
 (defun mtorus-behaviour-ring-induces-buffer (element)
-  ""
+  "Automatically create a buffer-element when creating a new ring."
   (and (mtorus-type-ring-p element)
        (mtorus-create-element 'buffer (mtorus-default-name 'buffer))))
+
 (defun mtorus-enable-ring-induces-buffer ()
-  ""
+  "Enables `mtorus-behaviour-ring-induces-buffer'."
   (interactive)
   (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-buffer)
   (message "ring induces buffer"))
+
 (defun mtorus-disable-ring-induces-buffer ()
-  ""
+  "Disables `mtorus-behaviour-ring-induces-buffer'."
   (interactive)
   (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-buffer)
   (message "ring induces buffer ... off"))
@@ -495,16 +507,20 @@ Special care for CUA users is taken."
 
 ;; creating a ring, also creates a marker
 (defun mtorus-behaviour-ring-induces-marker (element)
-  ""
+  "Automatically create a marker-element when creating a new ring."
   (and (mtorus-type-ring-p element)
        (mtorus-create-element 'marker (mtorus-default-name 'marker))))
+
 (defun mtorus-enable-ring-induces-marker ()
-  ""
+  "Enables `mtorus-behaviour-ring-induces-marker'.
+Use `mtorus-disable-ring-induces-marker' to turn off."
   (interactive)
   (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-marker)
   (message "ring induces marker"))
+
 (defun mtorus-disable-ring-induces-marker ()
-  ""
+  "Disables `mtorus-behaviour-ring-induces-marker'.
+Use `mtorus-enable-ring-induces-marker' to turn on."
   (interactive)
   (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-marker)
   (message "ring induces marker ... off"))
@@ -512,16 +528,18 @@ Special care for CUA users is taken."
 
 ;; creating a buffer, also creates a marker
 (defun mtorus-behaviour-buffer-induces-marker (element)
-  ""
+  "Automatically create a marker-element when creating a new buffer.."
   (and (mtorus-type-buffer-p element)
        (mtorus-create-element 'marker (mtorus-default-name 'marker))))
 (defun mtorus-enable-buffer-induces-marker ()
-  ""
+  "Enables `mtorus-behaviour-buffer-induces-marker'.
+Use `mtorus-disable-buffer-induces-marker' to turn off."
   (interactive)
   (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-buffer-induces-marker)
   (message "buffer induces marker"))
 (defun mtorus-disable-buffer-induces-marker ()
-  ""
+  "Disables `mtorus-behaviour-buffer-induces-marker'.
+Use `mtorus-enable-buffer-induces-marker' to turn on."
   (interactive)
   (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-buffer-induces-marker)
   (message "buffer induces marker ... off"))
