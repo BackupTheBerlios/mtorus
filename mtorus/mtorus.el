@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.5 2004/04/23 13:05:32 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.6 2004/05/22 22:51:40 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -165,7 +165,7 @@ find good settings for many people."
   :type 'hook
   :group 'mtorus)
 
-(defcustom mtorus-init-rings-emtpy nil
+(defcustom mtorus-init-ring-emtpy nil
   "*Whether to create a new ring with a marker at point."
   :type 'boolean
   :group 'mtorus)
@@ -439,7 +439,7 @@ The auto-rings will be set up by running
 that are not in the universe."
   (mapc (lambda (ring)
           (and (not (mtorus-ring-in-universe-p ring))
-               (mtorus-rings-delete-ring ring)))
+               (mtorus-ring-delete-ring ring)))
         mtorus-rings))
 
 
@@ -467,29 +467,29 @@ Optional argument UNIVERSE is ignored atm."
 
 (defun mtorus-new-ring-2 (ring-name)
   "Create a ring with name RING-NAME (asked from user).
-If `mtorus-init-rings-emtpy' is non nil a marker at the current point
+If `mtorus-init-ring-emtpy' is non nil a marker at the current point
 is created and pushed on the list, otherwise the ring stays empty for
 the moment.  Makes the new ring the current ring.
 
 It won't create a ring with a name that already exists."
   (interactive "sRing name: ")
   (if (mtorus-ring-in-universe-p
-       (mtorus-rings-ring-by-name ring-name))
+       (mtorus-ring-ring-by-name ring-name))
       (prog1
           (mtorus-message
            (format "A ring with name \"%s\" already exists."
                    ring-name))
         (run-hooks 'mtorus-ring-exists-p-hook))
     (let* ((parent 'mtorus-universe)
-           (ring (mtorus-rings-create-ring :name ring-name :description "User defined mtorus-ring" :parent parent)))
+           (ring (mtorus-ring-create-ring :name ring-name :description "User defined mtorus-ring" :parent parent)))
       (mtorus-add-ring-to-universe ring parent)
-      (run-hook 'mtorus-new-ring-hook)
+      (run-hook-with-args 'mtorus-new-ring-hook ring)
       ring)))
 
 
 (defun mtorus-new-ring (ring-name)
   "Create a ring with name RING-NAME (asked from user).
-If `mtorus-init-rings-emtpy' is non nil a marker at the current point
+If `mtorus-init-ring-emtpy' is non nil a marker at the current point
 is created and pushed on the list, otherwise the ring stays empty for
 the moment.  Makes the new ring the current ring.
 
@@ -587,6 +587,14 @@ ring."
          (list (first ring)
                (cons (point-marker)
                      (second ring))))))
+
+(defun mtorus-new-marker-2 ()
+  "Create a new marker at the current position.
+It is added to the current ring and made the current entry in that
+ring."
+  (interactive)
+  (mtorus-add-element (mtorus-ring-get-current-ring)))
+
 
 
 (defun mtorus-delete-current-marker ()
@@ -923,7 +931,7 @@ Takes care of special ring names"
     ((mtorus-special-ringp ring-name)
      (concat "special: "
              ring-name))
-    ((not mtorus-init-rings-emtpy)
+    ((not mtorus-init-ring-emtpy)
      (point-marker))
     (t
      ()))))

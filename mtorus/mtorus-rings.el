@@ -1,7 +1,9 @@
 ;;; mtorus-rings.el --- ring functions
-;; $Id: mtorus-rings.el,v 1.3 2004/04/23 13:05:32 hroptatyr Exp $
+;; $Id: mtorus-rings.el,v 1.4 2004/05/22 22:51:40 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
+;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
+;;         Sebastian Freundt <freundt@hlidskjalf.de>
 ;; Created: 2004/04/03
 ;; Keywords: bookmarks, navigation, tools, extensions, user
 
@@ -32,14 +34,15 @@
 
 ;;; Code:
 
+(require 'cl-extra) ;;; sorry about that, but i use (every ...) and (some ...) constructions
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Customizable User Settings ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defgroup mtorus-rings nil
+(defgroup mtorus-ring nil
   "The rings of the torus."
   :tag "MTorus"
-  :prefix "mtorus-rings-"
+  :prefix "mtorus-ring-"
   :group 'mtorus)
 
 ;; once again the ring-specs
@@ -64,42 +67,82 @@ Actually this is 'mtorus-universe.")
 ;;;
 ;;; Auxiliary stuff
 ;;;
-(defvar mtorus-rings-spec-keywords
-  '((cons 'r-symbol (unless (keywordp (car ring-spec)) (car ring-spec)))
+(defvar mtorus-ring-spec-keywords
+  '((cons 'r-symbol (unless (keywordp (car spec)) (car spec)))
     :name
     :description
     :parent)
   "Keywords to parse in a ring-spec.")
-(defun mtorus-rings-parse-key (keyword spec)
+
+(defvar mtorus-ring-element-types
+  '((buffer :validity-function-list (buffer-live-p))
+    (marker)
+    (mtorus-ring-ring))
+  "Types to parse in a ring-spec.
+This is an alist of the form
+\(type type-specs)
+type-specs are :keyword value pairs.
+
+Supported keywords are:
+:validity-function-list function list to be applied on
+  the contents of an element")
+
+(defvar mtorus-ring-element-types-spec-keywords
+  '(:validity-function-list)
+  "Keywords when looking at the type of an element of a ring.
+This is a list of keywords.")
+
+(defvar mtorus-ring-element-spec-keywords
+  '(:type
+    :contents
+    :validity-function-list)
+  "Keywords when looking at the elements of a ring.
+This is a list of :keywords.
+
+Some keywords are predefined (and thus are essential for mtorus):
+:type  type of an element (see `mtorus-ring-element-types')
+:contents  contents of an element
+:validity-check  functions to be run on the value of :contents
+  to see if a certain element is still valid.")
+
+;; hooks
+
+
+;;; now the real Code
+
+(defun mtorus-ring-parse-key (keyword spec)
   "Parses SPEC for keyword KEY and returns a cons cell of key and value."
   (let ((keypos (position keyword spec)))
     (cons (intern (substring (format "%s" keyword) 1))
           (and keypos
                (nth (1+ keypos) spec)))))
-(defun mtorus-rings-parse-ring-spec (ring-spec &optional spec-keywords)
-  "Parses RING-SPEC and returns a list '((key . value) ...)."
-  (let ((spec-keywords (or spec-keywords mtorus-rings-spec-keywords)))
+(defun mtorus-ring-parse-spec (spec &optional spec-keywords)
+  "Parses SPEC and returns a list '((key . value) ...).
+Traditionally "
+  (let ((spec-keywords (or spec-keywords mtorus-ring-spec-keywords)))
     (mapcar (lambda (key)
               (cond ((listp key)
                      (eval key))
-                    (t (mtorus-rings-parse-key key ring-spec))))
+                    (t (mtorus-ring-parse-key key spec))))
             spec-keywords)))
-;; (mtorus-rings-parse-ring-spec '(:name "bla" :description "more bla" :parent "even more bla"))
+;; (mtorus-ring-parse-spec '(:name "bla" :description "more bla" :parent "even more bla"))
+;; (mtorus-ring-parse-spec '(:type 'buffer :contents (current-buffer)) mtorus-ring-element-spec-keywords)
 
-(defun mtorus-rings-property (ring property)
+
+(defun mtorus-ring-property (ring property)
   "Gets PROPERTY from object-plist of RING"
   (get ring (intern (format "mtorus-%s" property))))
-(defun mtorus-rings-ring-p (ring)
+(defun mtorus-ring-ring-p (ring)
   "Tests if RING is an mtorus-ring in `mtorus-rings'."
   (and (member ring mtorus-rings)
-       (mtorus-rings-property ring 'ring-p)))
+       (mtorus-ring-property ring 'ring-p)))
 
 
 
 ;;;
 ;;; Handlers for creation (note these are not interactive, use wrappers)
 ;;;
-(defun mtorus-rings-create-ring (&rest ring-spec)
+(defun mtorus-ring-create-ring (&rest ring-spec)
   "Create a ring by RING-SPEC.
 Returns the ring-symbol.
 
@@ -107,7 +150,7 @@ Actually a new variable is set with RING-SPEC plus some other stuff
 in the object-plist of the ring-symbol.
 
 Created rings are stored in `mtorus-rings'."
-  (let* ((r-spec (mtorus-rings-parse-ring-spec ring-spec))
+  (let* ((r-spec (mtorus-ring-parse-spec ring-spec))
          (r-symbol (or (cdr (assoc 'r-symbol r-spec))
                        (intern (format "mtorus-ring-%.8x" (random)))))
          (r-doc (cdr (assoc 'description r-spec))))
@@ -130,34 +173,34 @@ Created rings are stored in `mtorus-rings'."
           r-spec)
     r-symbol))
 ;;;possible calls:
-;;(mtorus-rings-create-ring 'test-ring :name "Test Ring" :description "Just to test some" :parent 'mtorus-universe)
-;;(mtorus-rings-create-ring :name "Test Ring" :description "Just to test some" :parent 'mtorus-universe)
-;;(mtorus-rings-create-ring)
+;;(mtorus-ring-create-ring 'test-ring :name "Test Ring" :description "Just to test some" :parent 'mtorus-universe)
+;;(mtorus-ring-create-ring :name "Test Ring" :description "Just to test some" :parent 'mtorus-universe)
+;;(mtorus-ring-create-ring)
 
 
-(defun mtorus-rings-delete-ring (ring)
+(defun mtorus-ring-delete-ring (ring)
   "Deletes the ring RING.
 "
-  (and (mtorus-rings-ring-p ring)
-       (mtorus-rings-property ring 'ring-deletable-p)
+  (and (mtorus-ring-ring-p ring)
+       (mtorus-ring-property ring 'ring-deletable-p)
        (progn (setq mtorus-rings
                     (remove ring mtorus-rings))
               (makunbound ring)))
   ring)
 ;;;possible calls:
-;;(mtorus-rings-delete-ring 'test-ring)
+;;(mtorus-ring-delete-ring 'test-ring)
 
 
-(defun mtorus-rings-rename-ring (&rest ring-spec)
+(defun mtorus-ring-rename-ring (&rest ring-spec)
   "Rename ring from RING-SPEC to new value of :name and/or :description."
-  (let* ((r-spec (mtorus-rings-parse-ring-spec ring-spec))
+  (let* ((r-spec (mtorus-ring-parse-spec ring-spec))
          (r-symbol (cdr (assoc 'r-symbol r-spec)))
          (r-name (cdr (assoc 'name r-spec)))
          (r-doc (cdr (assoc 'description r-spec))))
 
     ;; const specs (not to be influenced by the user
     (and r-symbol
-         (mtorus-rings-ring-p r-symbol)
+         (mtorus-ring-ring-p r-symbol)
          (progn
            (and r-doc
                 (progn
@@ -167,27 +210,96 @@ Created rings are stored in `mtorus-rings'."
                 (put r-symbol 'name r-name))
            r-symbol))))
 ;;; possible calls:
-;;(mtorus-rings-rename-ring 'test-ring :name "TTTTESSSST RING" :description "just changed")
+;;(mtorus-ring-rename-ring 'test-ring :name "TTTTESSSST RING" :description "just changed")
 
 
 
 
 ;;;finding rings
 
-(defun mtorus-rings-ring-name (ring)
+(defun mtorus-ring-ring-name (ring)
   "Returns the name of RING."
   (get ring 'name))
-(defun mtorus-rings-ring+name (ring)
+(defun mtorus-ring-ring+name (ring)
   "Returns the cons \(RING . name)."
-  (cons ring (mtorus-rings-ring-name ring)))
-(defun mtorus-rings-ring-by-name (name)
-  "Finds the ring symbol in `mtorus-rings' of the ring
+  (cons ring (mtorus-ring-ring-name ring)))
+(defun mtorus-ring-ring-by-name (name)
+  "Finds the ring symbol in `mtorus-ring' of the ring
 with the name NAME."
   (car-safe
    (rassoc name
-           (mapcar 'mtorus-rings-ring+name
-                   mtorus-rings))))
-;; (mtorus-rings-ring-by-name "test2")
+           (mapcar 'mtorus-ring-ring+name
+                   mtorus-ring))))
+
+
+
+
+
+;;;elements of rings
+
+(defun mtorus-ring-elements (ring)
+  "Returns elements of RING."
+  ring)
+
+(defun mtorus-ring-add-element (ring &rest element-spec)
+  "Adds an element (described by ELEMENT-SPEC) to RING."
+  (and (boundp ring)
+       (add-to-list ring element-spec)))
+;;(mtorus-ring-add-element 'test-ring :type 'buffer :contents (current-buffer))
+
+
+(defun mtorus-ring-element-valid-p (element-spec)
+  "Returns non-nil if :contents in ELEMENT-SPEC are a valid content
+for the given :type.
+
+The atomic ring elements should be specified by a list of :keyword value pairs
+\(see `mtorus-ring-element-spec-keywords' for keywords).
+
+Contents are checked whether the function `:type'p or `:type'-p
+returns t on the :contents.
+Furthermore the value of :validity-function-list (which is not more
+than a local, element-specific hook then) is called with the value
+of :content as argument.
+
+For type-specific validity-check-functions see `mtorus-ring-element-types'."
+  (let* ((element-list (mtorus-ring-parse-spec element-spec mtorus-ring-element-spec-keywords))
+         (element-type (cdr (assoc 'type element-list)))
+         (element-content (cdr (assoc 'contents element-list)))
+         (validity-fun-list
+          (cdr (assoc 'validity-function-list element-list)))
+         (type-validity-fun-list
+          (cdr (assoc 'validity-function-list
+                      (mtorus-ring-parse-spec
+                       (cdr (assoc element-type mtorus-ring-element-types))
+                       mtorus-ring-element-types-spec-keywords))))
+         (check-fun (list (or (let ((type-predicate-fun (intern (format "%sp" element-type))))
+                                (and (fboundp type-predicate-fun)
+                                     type-predicate-fun))
+                              (let ((type-predicate-fun (intern (format "%s-p" element-type))))
+                                (and (fboundp type-predicate-fun)
+                                     type-predicate-fun)))
+                          element-content)))
+    (and (car check-fun)
+         (or (not validity-fun-list)
+             (every (lambda (fun)
+                      (funcall fun element-content))
+                    validity-fun-list))
+         (or (not type-validity-fun-list)
+             (every (lambda (fun)
+                      (funcall fun element-content))
+                    type-validity-fun-list))
+         (eval check-fun))))
+;; (mtorus-ring-element-valid-p (cadr test-ring))
+
+
+
+
+
+
+
+
+
+
 
 
 
