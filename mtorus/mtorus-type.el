@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.7 2004/08/09 01:11:44 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.8 2004/08/18 21:36:17 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,7 +53,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.7 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.8 $"
   "Version of mtorus-type backend.")
 
 (defcustom mtorus-type-properties-alist
@@ -432,7 +432,8 @@ Optional TYPE-FILTER limits this set to only certain types."
     :inherit-selection
     (lambda (element)
       (setq mtorus-current-ring element)
-      (mtorus-child-element))
+      (mtorus-child-element) ;;; would cause infinite loops
+      )
 
     :alive-p
     (lambda (element)
@@ -527,6 +528,7 @@ Optional TYPE-FILTER limits this set to only certain types."
         ;;(mtorus-element-set-current (mtorus-determine-parent-element element))
         ;;(mtorus-element-detach element)
         )))
+
 
   ;; furthermore there should be some usre customization here,
   ;; im talking about mtorus-type-auto-register-at-topology-p or something

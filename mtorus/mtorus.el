@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.20 2004/08/12 07:14:34 ska Exp $
+;; $Id: mtorus.el,v 1.21 2004/08/18 21:36:17 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.1 $Revision: 1.20 $"
+(defconst mtorus-version "2.1 $Revision: 1.21 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -244,6 +244,7 @@
 (require 'mtorus-display)
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Customizable User Settings ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -274,29 +275,55 @@ find good settings for many people."
   :type 'hook
   :group 'mtorus)
 
-;;; REVISE ME!!
+
+(defvar mtorus-read-string-history nil
+  "The history to use when asking the user.")
+
+
+;;;;;;;;;;;;;
+;;; Behaviour
+;;;;;;;;;;;;;
+
+;;; Static Behaviour
+;; I'd call this static because you usually dont want to change the settings 
+;; during an mtorus session
+
+;;; REVISE ME!
+(defcustom mtorus-buffer-skip-p
+  'mtorus-default-buffer-skip-p
+  "Predicate to use to skip buffers when cycling the real buffer list.
+This has nothing to do with the cycling inside a normal ring.
+A good example would be to use the result of
+  (string-match \"^[ \\*]+\" (buffer-name buffer))
+which skips the buffers with a star or a space at the beginning of
+their buffer names.
+The default predicate `mtorus-default-buffer-skip-p'  skips
+buffers whose names begin with a space."
+  :type 'function
+  :group 'mtorus)
+
+;; REVISE ME!
+;;; this would go to mtorus-state.el
+(defcustom mtorus-save-on-exit nil
+  "*Whether to save the current torus to the current dir on exit.
+This is an ALPHA feature."
+  :type 'boolean
+  :group 'mtorus)
+
+;; AutoAttach elements per-type to the topology network 
+(defcustom mtorus-auto-attach-p t
+  "*Whether to use auto attaching.
+We will define later what this actually means."
+  :group 'mtorus)
+
+;;; currently not used
 (defcustom mtorus-init-ring-emtpy nil
   "*Whether to create a new ring with a marker at point.
 You will see this not in action atm."
   :type 'boolean
   :group 'mtorus)
 
-
-
-;;; this is what i'd call mtorus-display stuff
-(defcustom mtorus-notify-method 't
-  "*Controls how the status is displayed to the user.
-If set to 't' mtorus uses a popup window and the echo erea.
-
-If set to 'popup' only the popup window will be used
-
-If set to 'echo'  only the echo area will be used.
-
-Set this to 'nil' to avoid notifying at all."
-  :type '(choice (const t) (const nil) (const popup) (const echo))
-  :group 'mtorus)
-
-;; REVISE ME!
+;;; REVISE ME!
 (defcustom mtorus-buffer-skip-p
   'mtorus-default-buffer-skip-p
   "Predicate to use to skip buffers when cycling the real buffer list.
@@ -319,46 +346,13 @@ This is an ALPHA feature."
   :group 'mtorus)
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; How to display information
-;; REVISE ME!
-(defgroup mtorus-notify nil
-  "Controls the display of information in mtorus."
-  :tag "MTorus Notify"
-  :prefix "mtorus-notify"
-  :group 'mtorus)
+   ;;; this is a general default behaviour installer
+(defun mtorus-install-default-behaviour ()
+  "Installs the default behaviour of how things in mtorus work."
+  (interactive)
+  )
 
-(defcustom mtorus-notify-popup-clear-timeout 4
-  "*Time in seconds before the pop up window is removed."
-  :type 'number
-  :group 'mtorus-pop-up)
-
-(defcustom mtorus-notify-popup-separator " - "
-  "String appearing between two entries in pop up window."
-  :type 'string
-  :group 'mtorus-pop-up)
-
-
-(defvar mtorus-notify-popup-buffer-name " *mtorus*"
-  "Name of the temporary buffer to display the torus.")
-
-(defvar mtorus-notify-popup-timer nil
-  "The timer used to remove the popup window.")
-
-(defvar mtorus-read-string-history nil
-  "The history to use when asking the user.")
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; AutoAttach elements per-type to the topology network 
-(defcustom mtorus-auto-attach-p t
-  "*Whether to use auto attaching.
-We will define later what this actually means."
-  :group 'mtorus)
-
-
-
-
+;; additional behaviour installers
 (defun mtorus-install-suggested-bindings-ska ()
   "This sets the key-bindings that I (Stefan Kamphausen) consider useful.
 The bindings don't not fulfill the requirements of good key-defining
@@ -402,6 +396,9 @@ Special care for CUA users is taken."
 ;;     'mtorus-update-current-marker)
   ;; doesnt exist atm
 
+  ;; auto selection
+  (mtorus-enable-select-follows-choose)
+
   (message "ska bindings installed"))
 (defalias 'mtorus-install-suggested-bindings
   'mtorus-install-suggested-bindings-ska)
@@ -426,10 +423,43 @@ Special care for CUA users is taken."
 
 
 
+;;; Dynamic Behaviour
+;; I'd call this dynamic because you may have the urge to switch it on or off
+;; during the mtorus session
+
+;; navigating selects the element
+(defun mtorus-enable-select-follows-choose ()
+  ""
+  (interactive)
+  (add-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
+  (add-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
+  (message "select follows choose"))
+(defun mtorus-disable-select-follows-choose ()
+  ""
+  (interactive)
+  (remove-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
+  (remove-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
+  (message "select follows choose"))
 
 
-;;;;;;;;;;;;;;;;;;;
-;; MTorus internals
+
+
+
+
+
+
+
+
+
+;;;
+;;;
+;;;
+;;;;;;;;;;;;;;;;;;;;
+;;; MTorus internals
+;;;;;;;;;;;;;;;;;;;;
+;;;
+;;;
+;;;
 
 ;; Default Settings
 (defun mtorus-default-buffer-skip-p (buffer)
@@ -465,7 +495,7 @@ altering the contents of the buffer.")
 
 
 ;;; thus here we go:
-(defvar mtorus-universe nil
+(defvar mtorus-universe nil ;; obsolete??
   "This is the universe, i.e. a torus which cannot have siblings.
 
 For convenience:
@@ -490,11 +520,7 @@ for it (as we cannot represent a real universe).")
 ;;; some hooks
 (defcustom mtorus-clear-universe-hook nil
   "Hook run when the universe is cleared."
-  :group 'mtorus)
-
-(defcustom mtorus-new-ring-hook nil
-  "Hook run after a new ring has been successfully
-added to the universe."
+  :type 'hook
   :group 'mtorus)
 
 
@@ -503,33 +529,50 @@ added to the universe."
   "Hook run before an element is about to be created interactively.
 Note there's an equivalent hook `mtorus-element-pre-creation-hook'
 which is always run."
+  :type 'hook
   :group 'mtorus)
 (defcustom mtorus-create-element-post-hook nil
   "Hook run after an element has been created interactively.
 Note there's an equivalent hook `mtorus-element-post-creation-hook'
 which is always run."
+  :type 'hook
   :group 'mtorus)
 (defcustom mtorus-delete-element-pre-hook nil
   "Hook run before an element is about to be deleted interactively.
 Note there's an equivalent hook `mtorus-element-pre-deletion-hook'
 which is always run."
+  :type 'hook
   :group 'mtorus)
 (defcustom mtorus-delete-element-post-hook nil
   "Hook run after an element has been deleted interactively.
 Note there's an equivalent hook `mtorus-element-post-deletion-hook'
 which is always run."
+  :type 'hook
   :group 'mtorus)
 (defcustom mtorus-select-element-pre-hook nil
   "Hook run before an element is about to be selected interactively.
 Note there's an equivalent hook `mtorus-element-pre-selection-hook'
 which is always run."
+  :type 'hook
   :group 'mtorus)
 (defcustom mtorus-select-element-post-hook nil
   "Hook run after an element has been selected interactively.
 Note there's an equivalent hook `mtorus-element-post-selection-hook'
 which is always run."
+  :type 'hook
   :group 'mtorus)
 
+;; navigation hooks
+(defcustom mtorus-navigate-pre-hook nil
+  "Hook run before navigation takes place.
+This hook is run with the old current element."
+  :type 'hook
+  :group 'mtorus)
+(defcustom mtorus-navigate-post-hook nil
+  "Hook run before navigation takes place.
+This hook is run with the new current element."
+  :type 'hook
+  :group 'mtorus)
 
 
 
@@ -545,6 +588,8 @@ which is always run."
   (interactive)
   ;;(mtorus-clear-universe)
   ;;(mtorus-maybe-install-kill-hook)
+  (mtorus-install-per-type-hooks)
+  (mtorus-install-default-behaviour)
   (run-hooks 'mtorus-init-hook))
 (defalias 'mtorus-init 'mtorus-universe-init)
 
@@ -559,6 +604,30 @@ The auto-rings will be set up by running
   (mtorus-clear-elements)
   (mtorus-element-initialize)
   (run-hooks 'mtorus-clear-universe-hook 'mtorus-auto-ring-setup-hook))
+
+
+(defun mtorus-run-per-type-pre-hooks (element)
+  "Runs hooks in `mtorus-type-run-pre-choose-funs' with ELEMENT."
+  (let ((type (mtorus-element-get-type element)))
+    (and type
+         (mtorus-type-run-pre-choose-funs type element))))
+(defun mtorus-run-per-type-post-hooks (element)
+  "Runs hooks in `mtorus-type-run-post-choose-funs' with ELEMENT."
+  (let ((type (mtorus-element-get-type element)))
+    (and type
+         (mtorus-type-run-post-choose-funs type element))))
+(defun mtorus-install-per-type-hooks ()
+  "Adds `mtorus-run-per-type-pre/post-hooks' to
+`mtorus-navigate-pre/post-hook'."
+  (interactive)
+  (add-hook 'mtorus-navigate-pre-hook 'mtorus-run-per-type-pre-hooks)
+  (add-hook 'mtorus-navigate-post-hook 'mtorus-run-per-type-post-hooks))
+(defun mtorus-uninstall-per-type-hooks ()
+  "Removes `mtorus-run-per-type-pre/post-hooks' from
+`mtorus-navigate-pre/post-hook'."
+  (interactive)
+  (remove-hook 'mtorus-navigate-pre-hook 'mtorus-run-per-type-pre-hooks)
+  (remove-hook 'mtorus-navigate-post-hook 'mtorus-run-per-type-post-hooks))
 
 
 (defun mtorus-clear-elements ()
@@ -687,7 +756,6 @@ unknown to mtorus."
   (mtorus-delete-element mtorus-current-element))
 (defun mtorus-delete-element (element &optional type-filter)
   "Delete an mtorus element.
-ELEMENT can be the element name or an element itself.
 
 This will use `mtorus-element-delete' to get rid of the element.
 If you intend to detach an element from a ring for example use
@@ -702,8 +770,8 @@ elements to only those of a certain type."
                 (curel (car (rassoc mtorus-current-element table))))
            (cdr
             (assoc (completing-read
-                    "Element: "
-                    table nil t curel)
+                    (format "Element (%s): " curel)
+                    table nil t nil 'mtorus-read-string-history curel)
                    table)))))
   (run-hook-with-args 'mtorus-delete-element-pre-hook element)
   (mtorus-element-delete element)
@@ -713,6 +781,41 @@ elements to only those of a certain type."
    :element element
    :message '("deleted: %s" element))
   element)
+
+
+(defun mtorus-rename-element (element newname &optional type-filter)
+  "Rename an mtorus element."
+  (interactive
+   (let* ((table (mtorus-element-obarray+names 'all))
+          (curel (car (rassoc mtorus-current-element table)))
+          (element
+           (cdr
+            (assoc (completing-read
+                    (format "Element (%s): " curel)
+                    table nil t nil 'mtorus-read-string-history curel)
+                   table)))
+          (newname
+           (read-string
+            "New Name: "
+            (mtorus-element-get-name element) 'mtorus-read-string-history)))
+     (list element newname)))
+
+  ;;; hooks??
+  (mtorus-element-put-name element newname))
+
+(defun mtorus-rename-current-element (newname &optional type-filter)
+  "Rename the current mtorus element."
+  (interactive
+   (list (read-string
+          "New Name: "
+          (mtorus-element-get-name mtorus-current-element) 'mtorus-read-string-history)))
+
+  ;;; hooks??
+  (mtorus-rename-element mtorus-current-element newname))
+
+
+
+
 
 (defun mtorus-detach-element (element1 element2 &optional type-filter)
   "Detach an mtorus element ELEMENT1 from ELEMENT2."
@@ -842,18 +945,6 @@ elements to only those of a certain type."
 
 
 ;; old 1.6 
-;;; CONVERT ME!
-;; (defun mtorus-rename-ring (&optional ring-name new-name)
-;;   "Rename RING-NAME to NEW-NAME asking if omitted."
-;;   (interactive)
-;;   (let* ((rname (or ring-name (mtorus-ask-ring)))
-;;         (nname (or new-name (read-string
-;;                              (format "rename \"%s\" to: " rname)))))
-;;     (if (not (mtorus-special-ringp rname))
-;;         (setcar (assoc rname mtorus-torus) nname)
-;;       (mtorus-message "can't rename special rings"))))
-
-
 ;; ;; Marker
 ;; (defun mtorus-modify-torus (ring-name func)
 ;;   (if (not (mtorus-special-ringp ring-name))
@@ -1010,9 +1101,12 @@ See `mtorus-prev-element-function' on how to determine this."
   "Make the current element's next sibling the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-next-element curelt)))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1023,9 +1117,12 @@ This is done with respect to the current topology."
   "Make the current element's previous sibling the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-prev-element curelt)))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1036,9 +1133,12 @@ This is done with respect to the current topology."
   "Make the first parent of the current element's parents the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-parent-element curelt)))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1049,9 +1149,12 @@ This is done with respect to the current topology."
   "Make the first child of the current element's children the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-child-element curelt)))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1064,6 +1167,7 @@ This is done with respect to the current topology."
   "Make the prev sibling of the current element's parents the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
                         mtorus-current-element)
                        (t (mtorus-determine-parent-element
@@ -1072,6 +1176,8 @@ This is done with respect to the current topology."
                   (mtorus-determine-prev-element
                    curelt))))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1082,6 +1188,7 @@ This is done with respect to the current topology."
   "Make the next sibling of the current element's parents the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
                         mtorus-current-element)
                        (t (mtorus-determine-parent-element
@@ -1090,6 +1197,8 @@ This is done with respect to the current topology."
                   (mtorus-determine-next-element
                    curelt))))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1100,12 +1209,15 @@ This is done with respect to the current topology."
   "Make the prev sibling of the current element's child the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
                         (mtorus-determine-child-element mtorus-current-element))
                        (t mtorus-current-element)))
          (newelt (mtorus-determine-prev-element
                   curelt)))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element
@@ -1116,6 +1228,7 @@ This is done with respect to the current topology."
   "Make the next sibling of the current element's child the current element.
 This is done with respect to the current topology."
   (interactive)
+  (run-hook-with-args 'mtorus-navigate-pre-hook mtorus-current-element)
   (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
                         (mtorus-determine-child-element
                          mtorus-current-element))
@@ -1123,6 +1236,8 @@ This is done with respect to the current topology."
          (newelt (mtorus-determine-next-element
                   curelt)))
     (mtorus-element-set-current newelt)
+    (run-hook-with-args 'mtorus-navigate-post-hook mtorus-current-element)
+
     (mtorus-display-message
      message
      :element mtorus-current-element

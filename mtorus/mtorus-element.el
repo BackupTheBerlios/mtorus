@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.10 2004/08/09 01:11:44 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.11 2004/08/18 21:36:17 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.2 $Revision: 1.10 $"
+(defconst mtorus-element-version "Version: 0.2 $Revision: 1.11 $"
   "Version of mtorus-element backend.")
 
 
@@ -235,7 +235,7 @@ See also: `mtorus-element-generate-cookie-function'"
   "Checks whether ELEMENT is a registered mtorus element."
   (gethash element (eval mtorus-elements-hash-table)))
 
-   ;;; until abstractly done
+
 (defun mtorus-element-get-property (property element &optional default)
   "Checks whether ELEMENT is an mtorus element and
 returns PROPERTY."
@@ -516,6 +516,16 @@ This runs some hooks at the moment."
 
 ;;; some UI functions
 
+(defun mtorus-elements ()
+  "Returns a list of element symbols."
+  (let (elems)
+    (maphash #'(lambda (key val)
+                 (setq elems
+                       (cons key elems)))
+             (eval mtorus-elements-hash-table))
+    elems))
+;; (mtorus-elements)
+
 (defun mtorus-element-type-filter->fun-preds-1 (type-filter)
   "Makes a predicate function."
   (cond ((or (eq type-filter 'all)
@@ -580,10 +590,10 @@ Optional TYPE-FILTER limits this set to only certain types."
 if a current ring cannot be determined."
   (or (mtorus-fake-attach-get-current-ring)
       (let ((table (mtorus-element-obarray+names
-                    #'(lambda (element type)
-                        (unless
-                            (eq element 'mtorus-universe)
-                          t)))))
+                    #'(lambda (element elem-spec)
+                        (and (mtorus-type-ring-p element)
+                             (unless (eq element 'mtorus-universe)
+                               t))))))
         (setq mtorus-current-ring
               (cdr (assoc (completing-read
                            "Attach to ring: " table nil t)

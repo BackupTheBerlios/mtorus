@@ -1,3 +1,13 @@
+2004-08-18  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el: installed some behaviour
+	- mtorus-enable-select-follows-choose to immediately select the element
+	you've navigated to
+
+	* mtorus-display.el: (mtorus-notify-popup) another display fun that uses
+	mtorus-1.6 two line navigation display
+
+
 2004-08-11  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-topology.el: mtorus-topology-<TOPO>-find
