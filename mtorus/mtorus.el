@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.1 2004/04/01 22:35:00 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.2 2004/04/03 23:15:41 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -43,6 +43,10 @@
 ;; http://www.skamphausen.de/software/skamacs/mtorus.html
 ;; German intro:
 ;; http://www.skamphausen.de/xemacs/lisp/mtorus.html
+;; English intro:
+;; http://www.emacswiki.org/cgi-bin/wiki/MTorus
+;; Project page:
+;; http://developer.berlios.de/projects/mtorus
 ;;
 ;;; Usage:
 ;;  ======
