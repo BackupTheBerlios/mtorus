@@ -24,15 +24,13 @@ mailing lists | http://developer.berlios.de/mail/?group_id=1633
 
 ** News
 
+- 2004/09/14: MTorus has alpha support for dumping (i.e. saving) MTori to disk
+
 - 2004/08/02: MTorus has mailing lists now.
     See http://developer.berlios.de/mail/?group_id=1633
 
 - 2004/08/02: fixed GNUmacs compatibility:<br/>
     Thanks to SteveTaylor who reminded me that there was another Emacs flavor ;).
-
-- 2004/08/02: First bugfixes:<br/>
-    mtorus-child-element-function is now defined and used<br/>
-    interactive support for detaching elements added
 
 [[RecentNews][more ...]]
 
