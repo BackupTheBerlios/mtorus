@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.7 2004/06/18 00:01:58 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.8 2004/06/26 23:33:32 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -483,6 +483,7 @@ It won't create a ring with a name that already exists."
     (let* ((parent 'mtorus-universe)
            (ring (mtorus-ring-create-ring :name ring-name :description "User defined mtorus-ring" :parent parent)))
       (mtorus-add-ring-to-universe ring parent)
+      (mtorus-ring-set-current-ring ring)
       (run-hook-with-args 'mtorus-new-ring-hook ring)
       ring)))
 (defalias 'mtorus-new-ring-2 'mtorus-create-ring-2)
@@ -542,11 +543,69 @@ If none is given it is asked from the user."
   (interactive)
   (mtorus-switch-to-ring (mtorus-nth-ring-name 1)))
 
+(defun mtorus-next-ring-2 ()
+  "Make the next ring on the torus the current ring."
+  (interactive)
+  (let ((new (mtorus-determine-next-ring (mtorus-ring-get-current-ring))))
+    (mtorus-ring-set-current-ring (car new))
+    (message "current ring: %s" (cdr new))))
+
+
 (defun mtorus-prev-ring ()
   "Make the next ring on the torus the current ring."
   (interactive)
   (mtorus-switch-to-ring
    (mtorus-nth-ring-name (1- (length mtorus-torus)))))
+
+(defun mtorus-prev-ring-2 ()
+  "Make the next ring on the torus the current ring."
+  (interactive)
+  (let ((new (mtorus-determine-prev-ring (mtorus-ring-get-current-ring))))
+    (mtorus-ring-set-current-ring (car new))
+    (message "current ring: %s" (cdr new))))
+
+
+
+(defcustom mtorus-next-ring-function '1+
+  "Fun used to determine the successor of a torus element."
+  :group 'mtorus
+  :type 'function-name)
+(defcustom mtorus-prev-ring-function '1-
+  "Fun used to determine the predecessor of a torus element."
+  :group 'mtorus
+  :type 'function-name)
+
+(defun mtorus-determine-next-ring (ring)
+  "Determines the next ring on the current torus.
+See `mtorus-next-ring-function' on how to determine this.
+
+A cons cell \(ring-symbol . ring-name\) is returned."
+  (let* ((nextring (mtorus-determine-neighbour-rings ring mtorus-next-ring-function))
+         (ringname (mtorus-ring-ring-name nextring)))
+    (cons nextring ringname)))
+(defun mtorus-determine-prev-ring (ring)
+  "Determines the previous ring on the current torus.
+See `mtorus-prev-ring-function' on how to determine this.
+
+A cons cell \(ring-symbol . ring-name\) is returned."
+  (let* ((prevring (mtorus-determine-neighbour-rings ring mtorus-prev-ring-function))
+         (ringname (mtorus-ring-ring-name prevring)))
+    (cons prevring ringname)))
+(defun mtorus-determine-neighbour-rings (ring &optional neighbour-function)
+  "Determines rings in the neighbourhood of RING on the current torus.
+Optional NEIGHBOUR-FUNCTION measures distances between rings.
+
+The ring symbol is returned."
+  (let* ((torus mtorus-rings)
+         (ringlen (length torus))
+         (othring
+          (and (< 0 ringlen)
+               (let* ((cposring (position ring torus))
+                      (othpos (funcall neighbour-function cposring)))
+                 (nth (mod othpos ringlen) torus)))))
+    othring))
+
+
 
 
 ;; Marker
@@ -589,19 +648,35 @@ ring."
                (cons (point-marker)
                      (second ring))))))
 
-(defun mtorus-new-marker-2 (&optional type contents)
-  "Create a new marker at the current position.
-It is added to the current ring and made the current entry in that
-ring."
+(defun mtorus-new-ring-element (&optional type contents)
+  "Create a new ring element on the current ring on the current torus.
+It will become the current element.
+
+ATTENTION: we plan to omit both the association of the element
+to the current ring and setting this element as current one.
+
+This feature will be provided by hooks then."
   (interactive
    (list
-    (intern (completing-read "Type: " (mapvector 'identity mtorus-ring-element-types)))))
-  (mtorus-ring-add-element
-   (mtorus-ring-get-current-ring)
-   :type type
-   :contents (cond ((eq type 'buffer)
-                    (current-buffer))
-                   (t nil))))
+    (intern (completing-read "Type: " (mapvector 'car mtorus-ring-element-types)))))
+  (let* ((curring (mtorus-ring-get-current-ring))
+
+         ;; abstract this
+         (content
+          (cond ((eq type 'buffer)
+                 (current-buffer))
+                (t nil)))
+
+         (element
+          (mtorus-ring-create-element
+           :type type
+           :contents content)))
+
+    ;;; the association of this element will soonly be done via hooks
+    ;; the idea behind this is to provide a more opaque environment if
+    ;; this function is used from within lisp code
+    (mtorus-ring-add-element curring element)
+    (mtorus-ring-set-current-element curring element)))
 
 
 
@@ -644,6 +719,65 @@ current's ring name is equal to `mtorus-buffer-list-name'."
     (mtorus-rotate-entries 0 -1))
   (mtorus-jump-current-marker))
 (defalias 'mtorus-prev-entry 'mtorus-prev-marker)
+
+
+(defun mtorus-next-entry-2 ()
+  "Make the next entry on the ring the current element."
+  (interactive)
+  (let* ((currng (mtorus-ring-get-current-ring))
+         (curelt (mtorus-ring-get-current-element currng))
+         (newelt (mtorus-determine-next-element currng curelt)))
+    (mtorus-ring-set-current-element currng newelt)
+    (message "current element: %s" newelt)))
+(defun mtorus-prev-entry-2 ()
+  "Make the previous entry on the ring the current element."
+  (interactive)
+  (let* ((currng (mtorus-ring-get-current-ring))
+         (curelt (mtorus-ring-get-current-element currng))
+         (newelt (mtorus-determine-prev-element currng curelt)))
+    (mtorus-ring-set-current-element currng newelt)
+    (message "current element: %s" newelt)))
+
+(defcustom mtorus-next-element-function '1+
+  "Fun used to determine the successor of a ring element."
+  :group 'mtorus
+  :type 'function-name)
+(defcustom mtorus-prev-element-function '1-
+  "Fun used to determine the predecessor of a ring element."
+  :group 'mtorus
+  :type 'function-name)
+
+(defun mtorus-determine-next-element (ring element)
+  "Determines the next element on the current ring.
+See `mtorus-next-element-function' on how to determine this."
+  (let* ((nextelt (mtorus-determine-neighbour-elements
+                   ring element mtorus-next-element-function)))
+    (car nextelt)))
+(defun mtorus-determine-prev-element (ring element)
+  "Determines the previous element on the current torus.
+See `mtorus-prev-element-function' on how to determine this."
+  (let* ((prevelt (mtorus-determine-neighbour-elements
+                   ring element mtorus-prev-element-function)))
+    (car prevelt)))
+(defun mtorus-determine-neighbour-elements (ring element &optional neighbour-function)
+  "Determines rings in the neighbourhood of RING on the current torus.
+Optional NEIGHBOUR-FUNCTION measures distances between rings.
+
+The ring symbol is returned."
+  (and (mtorus-ring-ring-p ring)
+       (let* ((elements (eval ring))
+              (ringlen (length elements))
+              (othelt
+               (and (< 0 ringlen)
+                    (let* ((fullelt (assoc element elements))
+                           (cposring (position fullelt elements))
+                           (othpos (funcall neighbour-function cposring)))
+                      (nth (mod othpos ringlen) elements)))))
+         othelt)))
+
+
+
+
 
 (defun mtorus-jump-current-marker ()
   "Move point to the point and buffer defined by current marker."

@@ -1,0 +1,12 @@
+2004-06-26  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* ChangeLog: added ChangeLog file :)
+
+	* mtorus.el: added a basic set of interactive functions to
+	create rings and elements
+
+	* mtorus-rings.el: abstracted the creation of rings and
+	elements a little more.
+	- elements now have to be created via `mtorus-ring-create-element'
+	- elements have their own keeper variable `mtorus-elements'
+	- elements are not identified by their content but by a cookie

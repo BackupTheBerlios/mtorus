@@ -1,5 +1,5 @@
 ;;; mtorus-rings.el --- ring functions
-;; $Id: mtorus-rings.el,v 1.5 2004/06/18 00:01:58 hroptatyr Exp $
+;; $Id: mtorus-rings.el,v 1.6 2004/06/26 23:33:32 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -59,9 +59,19 @@
 ;; However there are several hidden specs:
 ;; :current-pos is the element 
 
+
 (defvar mtorus-rings nil
   "Stores symbols of rings ever created to reference them later.
 Actually this is 'mtorus-universe.")
+(defvar mtorus-elements nil
+  "Stores symbols of elements ever created to reference them later.")
+
+;; auxiliary stuff
+(defvar mtorus-ring-current-ring nil
+  "Holds the symbol of the ring seen as current.")
+(defvar mtorus-ring-current-element (make-hash-table :test 'equal)
+  "Holds the symbol of the element on the current ring which is current.")
+
 
 
 ;;;
@@ -114,9 +124,7 @@ Some keywords are predefined (and thus are essential for mtorus):
 ;;                      obarray))
   "Element types are any predicate symbol of the `obarray'.")
 
-;; auxiliary stuff
-(defvar mtorus-ring-current-ring nil)
-(defvar mtorus-ring-current-element nil)
+
 
 
 ;; hooks
@@ -132,7 +140,8 @@ Some keywords are predefined (and thus are essential for mtorus):
                (nth (1+ keypos) spec)))))
 (defun mtorus-ring-parse-spec (spec &optional spec-keywords)
   "Parses SPEC and returns a list '((key . value) ...).
-Traditionally "
+This is used by both `mtorus-ring-create-ring' and
+`mtorus-ring-create-element'."
   (let ((spec-keywords (or spec-keywords mtorus-ring-spec-keywords)))
     (mapcar (lambda (key)
               (cond ((listp key)
@@ -143,12 +152,14 @@ Traditionally "
 ;; (mtorus-ring-parse-spec '(:type 'buffer :contents (current-buffer)) mtorus-ring-element-spec-keywords)
 
 
-(defun mtorus-ring-property (ring property)
+
+(defun mtorus-ring-property (ring-or-element property)
   "Gets PROPERTY from object-plist of RING"
-  (get ring (intern (format "mtorus-%s" property))))
+  (get ring-or-element (intern (format "mtorus-%s" property))))
 (defun mtorus-ring-ring-p (ring)
   "Tests if RING is an mtorus-ring in `mtorus-rings'."
-  (and (member ring mtorus-rings)
+  (and (boundp ring)
+       (member ring mtorus-rings)
        (mtorus-ring-property ring 'ring-p)))
 
 
@@ -156,9 +167,12 @@ Traditionally "
 ;;;
 ;;; Handlers for creation (note these are not interactive, use wrappers)
 ;;;
+(defun mtorus-ring-ring-generate-cookie (&rest ignore)
+  "Returns a ring cookie."
+  (intern (format "mtorus-ring-%.8x" (random))))
+
 (defun mtorus-ring-create-ring (&rest ring-spec)
-  "Create a ring by RING-SPEC.
-Returns the ring-symbol.
+  "Create a ring by RING-SPEC. Returns the ring-symbol.
 
 Actually a new variable is set with RING-SPEC plus some other stuff
 in the object-plist of the ring-symbol.
@@ -166,19 +180,20 @@ in the object-plist of the ring-symbol.
 Created rings are stored in `mtorus-rings'."
   (let* ((r-spec (mtorus-ring-parse-spec ring-spec))
          (r-symbol (or (cdr (assoc 'r-symbol r-spec))
-                       (intern (format "mtorus-ring-%.8x" (random)))))
+                       (mtorus-ring-ring-generate-cookie)))
          (r-doc (cdr (assoc 'description r-spec))))
     (set r-symbol nil)
     (add-to-list 'mtorus-rings r-symbol)
 
     ;; const specs (not to be influenced by the user
     (add-to-list 'r-spec '(default-value . nil))
-    (and r-doc
-         (add-to-list 'r-spec '(variable-documentation . r-doc)))
-    (add-to-list 'r-spec '(mtorus-ring-p . t))
-    (add-to-list 'r-spec '(mtorus-ring-type . 'proper))
-    (add-to-list 'r-spec '(mtorus-ring-ctime . (current-time)))
-    (add-to-list 'r-spec '(mtorus-ring-deletable-p . t))
+    (if r-doc
+        (add-to-list 'r-spec `(variable-documentation . ,r-doc))
+      (add-to-list 'r-spec `(variable-documentation . "MTorus ring.")))
+    (add-to-list 'r-spec `(mtorus-ring-p . t))
+    (add-to-list 'r-spec `(mtorus-ring-type . proper))
+    (add-to-list 'r-spec `(mtorus-ring-ctime . ,(current-time)))
+    (add-to-list 'r-spec `(mtorus-ring-deletable-p . t))
     ;; set r-symbols object-plist
     (mapc (lambda (propval)
             (let ((prop (car propval))
@@ -192,9 +207,9 @@ Created rings are stored in `mtorus-rings'."
 ;;(mtorus-ring-create-ring)
 
 
+
 (defun mtorus-ring-delete-ring (ring)
-  "Deletes the ring RING.
-"
+  "Deletes the ring RING."
   (and (mtorus-ring-ring-p ring)
        (mtorus-ring-property ring 'ring-deletable-p)
        (progn (setq mtorus-rings
@@ -203,6 +218,12 @@ Created rings are stored in `mtorus-rings'."
   ring)
 ;;;possible calls:
 ;;(mtorus-ring-delete-ring 'test-ring)
+
+(defun mtorus-ring-flush-rings (&rest ignore)
+  "Deletes all rings from `mtorus-rings'."
+  (mapc #'mtorus-ring-delete-ring mtorus-rings))
+
+
 
 
 (defun mtorus-ring-rename-ring (&rest ring-spec)
@@ -245,11 +266,32 @@ with the name NAME."
            (mapcar 'mtorus-ring-ring+name
                    mtorus-rings))))
 
+
+;;; set/get-current funs
+
 (defun mtorus-ring-get-current-ring (&rest ignore)
-  "Returns the ring currently marked as current ring"
+  "Returns the ring marked as current ring."
   (unless mtorus-ring-current-ring
     (setq mtorus-ring-current-ring (car mtorus-rings)))
   mtorus-ring-current-ring)
+
+(defun mtorus-ring-set-current-ring (ring)
+  "Sets RING as current ring on the current torus."
+  (when (mtorus-ring-ring-p ring)
+    (setq mtorus-ring-current-ring ring))
+  mtorus-ring-current-ring)
+
+(defun mtorus-ring-get-current-element (ring &rest ignore)
+  "Returns the element marked as current element on RING."
+  (when (mtorus-ring-ring-p ring)
+    (gethash ring mtorus-ring-current-element)))
+
+(defun mtorus-ring-set-current-element (ring element)
+  "Sets ELEMENT as current element on RING."
+  (when (and (mtorus-ring-ring-p ring)
+             (assoc element (eval ring)))
+    (puthash ring element mtorus-ring-current-element)))
+
 
 
 
@@ -259,13 +301,56 @@ with the name NAME."
   "Returns elements of RING."
   ring)
 
-(defun mtorus-ring-add-element (ring &rest element-spec)
-  "Adds an element (described by ELEMENT-SPEC) to RING."
-  (if (boundp ring)
-      (add-to-list ring element-spec)
-    (message "Ring %s not bound." ring)))
-;;(mtorus-ring-add-element 'test-ring :type 'buffer :contents (current-buffer))
+(defun mtorus-ring-element-generate-cookie (&rest ignore)
+  "Returns an element cookie."
+  (intern (format "mtorus-element-%.8x" (random))))
 
+(defun mtorus-ring-create-element (&rest element-spec)
+  "Create an element by ELEMENT-SPEC. Returns the element-symbol.
+
+Actually a new variable is set with ELEMENT-SPEC plus some other stuff
+in the object-plist of the element-symbol.
+
+Created elements are stored in `mtorus-elements'."
+  (let* ((e-spec (mtorus-ring-parse-spec
+                  element-spec mtorus-ring-element-spec-keywords))
+         (e-symbol (or (cdr (assoc 'e-symbol e-spec))
+                       (mtorus-ring-element-generate-cookie)))
+         (e-doc (cdr (assoc 'description e-spec))))
+    (set e-symbol (cdr (assoc 'contents e-spec)))
+    (add-to-list 'mtorus-elements e-symbol)
+
+    ;; const specs (not to be influenced by the user
+    (add-to-list 'e-spec '(default-value . nil))
+    (if e-doc
+        (add-to-list 'e-spec `(variable-documentation . ,e-doc))
+      (add-to-list 'e-spec `(variable-documentation . "MTorus element.")))
+    (add-to-list 'e-spec `(mtorus-element-p . t))
+    (add-to-list 'e-spec `(mtorus-element-type . proper))
+    (add-to-list 'e-spec `(mtorus-element-ctime . ,(current-time)))
+    (add-to-list 'e-spec `(mtorus-element-deletable-p . t))
+    ;; set e-symbols object-plist
+    (mapc (lambda (propval)
+            (let ((prop (car propval))
+                  (val (cdr propval)))
+              (put e-symbol prop val)))
+          e-spec)
+    e-symbol))
+;;(mtorus-ring-create-element :type 'buffer :contents (current-buffer))
+
+
+(defun mtorus-ring-add-element (ring element)
+  "Adds ELEMENT to RING."
+  (when (mtorus-ring-ring-p ring)
+    (add-to-list ring element)
+    element))
+
+
+
+(defun mtorus-ring-element-p (element)
+  "Returns non-nil if element is a valid cookie and is
+associated to a ring."
+  )
 
 (defun mtorus-ring-element-valid-p (element-spec)
   "Returns non-nil if :contents in ELEMENT-SPEC are a valid content
@@ -310,6 +395,23 @@ For type-specific validity-check-functions see `mtorus-ring-element-types'."
          (eval check-fun))))
 ;; (mtorus-ring-element-valid-p (cadr test-ring))
 
+
+
+
+(defun mtorus-ring-delete-element (element)
+  "Deletes ELEMENT."
+  (and (mtorus-ring-element-p element)
+       (mtorus-ring-property element 'element-deletable-p)
+       (progn (setq mtorus-elements
+                    (remove element mtorus-elements))
+              (makunbound element)))
+  element)
+;;;possible calls:
+;;(mtorus-ring-delete-element 'test-ring)
+
+(defun mtorus-ring-flush-elements (&rest ignore)
+  "Deletes all rings from `mtorus-elements'."
+  (mapc #'mtorus-ring-delete-ring mtorus-elements))
 
 
 
