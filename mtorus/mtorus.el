@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.10 2004/07/20 23:01:42 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.11 2004/07/22 23:09:29 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -7,7 +7,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.0 $Revision: 1.10 $"
+(defconst mtorus-version "2.0 $Revision: 1.11 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -150,7 +150,7 @@
   (require 'cl)
   (require 'timer))
 
-(require 'mtorus-rings)
+;;(require 'mtorus-rings) ;;; turned out to be more abstract
 (require 'mtorus-element)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -360,6 +360,10 @@ the universe."
 added to the universe."
   :group 'mtorus)
 
+(defcustom mtorus-create-element-hook nil
+  "Hook run after a new element has been created."
+  :group 'mtorus)
+
 
 
 
@@ -458,60 +462,34 @@ that are not in the universe."
 
 
 ;; Rings
-(defun mtorus-ring-in-universe-p (ring &optional universe)
-  "Checks whether RING is an element of `mtorus-universe'
-Optional argument UNIVERSE is ignored atm."
-  (let ((universe (or mtorus-universe)))
-    (assoc ring universe)))
+;; (defun mtorus-ring-in-universe-p (ring &optional universe)
+;;   "Checks whether RING is an element of `mtorus-universe'
+;; Optional argument UNIVERSE is ignored atm."
+;;   (let ((universe (or mtorus-universe)))
+;;     (assoc ring universe)))
+;; 
+;; (defun mtorus-add-ring-to-universe (ring &optional parent)
+;;   "Adds RING to `mtorus-universe' with RING being a child of PARENT."
+;;   (let* ((universe (or mtorus-universe))
+;;          (parent (or parent
+;;                      universe))
+;;          (add-ring))
+;;     (if (equal parent 'mtorus-universe)
+;;         (setq add-ring (list ring))
+;;       (and (mtorus-ring-in-universe-p parent)
+;;            (setq add-ring (cons parent ring))))
+;;     (and add-ring
+;;          (add-to-list 'mtorus-universe add-ring)
+;;          (run-hooks 'mtorus-add-ring-hook))))
 
-(defun mtorus-add-ring-to-universe (ring &optional parent)
-  "Adds RING to `mtorus-universe' with RING being a child of PARENT."
-  (let* ((universe (or mtorus-universe))
-         (parent (or parent
-                     universe))
-         (add-ring))
-    (if (equal parent 'mtorus-universe)
-        (setq add-ring (list ring))
-      (and (mtorus-ring-in-universe-p parent)
-           (setq add-ring (cons parent ring))))
-    (and add-ring
-         (add-to-list 'mtorus-universe add-ring)
-         (run-hooks 'mtorus-add-ring-hook))))
-
-(defun mtorus-create-ring-2 (ring-name)
-  "Create a ring with name RING-NAME (asked from user).
-If `mtorus-init-ring-emtpy' is nil a marker at the current point
-is created and pushed on the list, otherwise the ring stays empty for
-the moment.  Makes the new ring the current ring.
-
-It won't create a ring with a name that already exists."
-  (interactive "sRing name: ")
-  (if (mtorus-ring-in-universe-p
-       (mtorus-ring-ring-by-name ring-name))
-      (prog1
-          (mtorus-message
-           (format "A ring with name \"%s\" already exists."
-                   ring-name))
-        (run-hooks 'mtorus-ring-exists-p-hook))
-    (let* ((parent 'mtorus-universe)
-           (ring (mtorus-ring-create-ring
-                  :name ring-name
-                  :description "User defined mtorus-ring"
-                  :parent parent)))
-      (mtorus-add-ring-to-universe ring parent)
-      (mtorus-ring-set-current-ring ring)
-      (run-hook-with-args 'mtorus-new-ring-hook ring)
-      ring)))
-(defalias 'mtorus-new-ring-2 'mtorus-create-ring-2)
-
-
-;; this is the defun to be used in future
-(defun mtorus-create-ring-3 (ring-name)
-  "Create a ring with name RING-NAME (asked from user).
-If `mtorus-init-ring-emtpy' is nil a marker at the current point
-is created and pushed on the list, otherwise the ring stays empty for
-the moment. Makes the new ring the current ring."
-  (interactive "sRing name: ")
+;; (defun mtorus-create-ring-2 (ring-name)
+;;   "Create a ring with name RING-NAME (asked from user).
+;; If `mtorus-init-ring-emtpy' is nil a marker at the current point
+;; is created and pushed on the list, otherwise the ring stays empty for
+;; the moment.  Makes the new ring the current ring.
+;; 
+;; It won't create a ring with a name that already exists."
+;;   (interactive "sRing name: ")
 ;;   (if (mtorus-ring-in-universe-p
 ;;        (mtorus-ring-ring-by-name ring-name))
 ;;       (prog1
@@ -519,21 +497,57 @@ the moment. Makes the new ring the current ring."
 ;;            (format "A ring with name \"%s\" already exists."
 ;;                    ring-name))
 ;;         (run-hooks 'mtorus-ring-exists-p-hook))
-    (let* ((parent 'mtorus-universe)
-           (ring
-            (mtorus-element-create
-             :type 'ring
-             :name ring-name
-             :value nil
-             :description "User defined mtorus-ring"
-             :variable-documentation "Manually generated mtorus element of type ring.")))
-      (mtorus-element-register ring)
-      (run-hook-with-args 'mtorus-new-ring-hook ring)
-      ring))
+;;     (let* ((parent 'mtorus-universe)
+;;            (ring (mtorus-ring-create-ring
+;;                   :name ring-name
+;;                   :description "User defined mtorus-ring"
+;;                   :parent parent)))
+;;       (mtorus-add-ring-to-universe ring parent)
+;;       (mtorus-ring-set-current-ring ring)
+;;       (run-hook-with-args 'mtorus-new-ring-hook ring)
+;;       ring)))
+;; (defalias 'mtorus-new-ring-2 'mtorus-create-ring-2)
+
+
+;; these are frontend/user functions for element creation
+(defun mtorus-create-element (type name)
+  "Create an element of type TYPE and with name NAME (asked from user).
+Unlike mtorus-1.6 elements duplicate names are allowed."
+  (interactive
+   (list (intern
+          (completing-read "Type: "
+                           (let ((types (or mtorus-types
+                                            (progn
+                                              (mtorus-type-initialize)
+                                              mtorus-types))))
+                             (mapvector 'identity types)) nil t))
+         (read-string "Name: ")))
+  (let ((element
+         (mtorus-element-create
+          :type type
+          :name name
+          :value nil
+          :description "User defined mtorus-element"
+          :variable-documentation
+          (format "Manually generated mtorus element of type %s." type))))
+    (mtorus-element-register element)
+    (run-hook-with-args 'mtorus-create-element-hook element)
+    element))
+
+;; this is just a wrapper function to mtorus-create-element
+(defun mtorus-create-ring-3 (name)
+  "Create an mtorus element of type ring with name NAME (asked from user).
+If `mtorus-init-ring-emtpy' is nil a marker at the current point
+is created and pushed on the list, otherwise the ring stays empty for
+the moment. Makes the new ring the current ring.
+
+Unlike mtorus-1.6 rings duplicate names are allowed."
+  (interactive "sRing name: ")
+  (mtorus-create-element 'ring name))
 (defalias 'mtorus-new-ring-3 'mtorus-create-ring-3)
 
 
-
+;; old 1.6
 (defun mtorus-new-ring (ring-name)
   "Create a ring with name RING-NAME (asked from user).
 If `mtorus-init-ring-emtpy' is nil a marker at the current point
@@ -554,7 +568,7 @@ It won't create a ring with a name that already exists."
     (mtorus-switch-to-ring ring-name t)))
 
 
-
+;; old 1.6
 (defun mtorus-delete-ring (&optional ring-name)
   "Delete the ring with name RING-NAME.
 If none is given it is asked from the user."
@@ -566,6 +580,8 @@ If none is given it is asked from the user."
                   (delete* rname mtorus-torus :key 'car
                            :test 'equal)))
       (mtorus-message "can't delete special rings"))))
+
+
 
 (defun mtorus-rename-ring (&optional ring-name new-name)
   "Rename RING-NAME to NEW-NAME asking if omitted."

@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.3 2004/07/20 23:01:42 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.4 2004/07/22 23:09:29 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -52,6 +52,9 @@
 ;; of the new abstract torus handling that adding rings to the torus and adding 
 ;; elements to a ring is basically the same.
 
+;; *** ToDo:
+;; - <add some> ;)
+
 
 ;;; History
 
@@ -67,41 +70,50 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defgroup mtorus-element nil
   "The elements of a torus."
-  :tag "MTorus"
+  :tag "MTorus Elements"
   :prefix "mtorus-element-"
   :group 'mtorus)
 (defgroup mtorus-type nil
   "The types of elements."
-  :tag "MTorus"
+  :tag "MTorus Types"
   :prefix "mtorus-type-"
+  :group 'mtorus)
+(defgroup mtorus-topology nil
+  "The topology of a torus."
+  :tag "MTorus Topologies"
+  :prefix "mtorus-topology-"
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-element backend.")
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-element backend.")
 
+;; elements
 (defvar mtorus-elements-hash-table 'mtorus-elements
   "Holds the symbol where to find the current elements hash-table.")
 (defvar mtorus-elements (make-hash-table :test 'equal)
   "Stores elements ever created to reference them later.
 At the moment it's uncertain how the hash-table-entries look like.
 At least for every bound element that is in use there's a hash-key.")
-;; I finally decided for hash-tables because
-;; 1. they are fast
-;; 2. they have opaque support for basic operations 
-;;    (such as adding, altering and removing of keys)
-;; 3. they are easy to dump
-;; 4. they approximate the set property of the mtorus-elements best
-;;    (the arrangement order of the elements within the container is not
-;;     not needed, further lists have longer access times for elements 
-;;     beyond the cdddddddd...ddddddddr of the list)
-;;
+;; I finally decided to organize elements in hash-tables because
+;; - they are fast
+;; - they have opaque support for basic operations 
+;;   (such as adding, altering and removing of keys)
+;; - they are easy to dump
+;; - they approximate the set property of the mtorus-elements best
+;;   (the arrangement order of the elements within the container is not
+;;    not needed, further lists have longer access times for elements 
+;;    beyond the cdddddddd...ddddddddr of the list)
+;; 
 ;; Though hash-tables themselves provide various facilties to not put
 ;; or get accidentally elements with the same key, the keys put into
 ;; this hash-table are (per default) 8 digits hexadecimal random number
 ;; cookies.
+;; 
+;; At the moment it's uncertain how the hash-table-entries look like.
+;; At least for every bound element that is in use there's a hash-key.
 
 
 
@@ -154,10 +166,12 @@ if they are not listed in one of
 
 
 
+
 ;;;
 ;;; hooks
 ;;;
 ;; currently there are not many of them but this will change ;)
+;; see also the automagically created hooks when creating types or elements
 
 
 
@@ -226,12 +240,12 @@ will be in the result list."
 
 
 ;;;
-;;; Types of ring elements
+;;; Types of mtorus elements
 ;;;
 (defcustom mtorus-type-hooks-alist
   '((predicate . p)
-    (pre-addition . pre-addition-funs)
-    (post-addition . post-addition-funs)
+    (pre-creation . pre-creation-funs)
+    (post-creation . post-creation-funs)
     (pre-deletion . pre-deletion-funs)
     (post-deletion . post-deletion-funs)
     (pre-selection . pre-selection-funs)
@@ -251,13 +265,21 @@ predicate function(s) to validate elements.
 Any of these function(s) should return `non-nil' iff element
 is of the specified type
 
-- pre-addition
+- pre-creation
 function(s) to be called just before some element of the
-specified type is added
+specified type is about to be created
 
-- post-addition
+- post-creation
 function(s) to be called after some element of the
-specified type has been added
+specified type has been created
+
+- pre-deletion
+function(s) to be called just before some element of the
+specified type is about to be deleted
+
+- post-deletion
+function(s) to be called after some element of the
+specified type has been deleted
 
 - pre-selection
 function(s) to be called just before some element of this type
@@ -290,8 +312,11 @@ hooks are the hook actions run by mtorus-element elements."
 This is for internal purposes only.
 Do not fiddle with it.")
 
+(defvar mtorus-type-obarray nil
+  "Obarray holding registered types.")
 
-(defmacro define-mtorus-element-type (name &rest properties)
+
+(defmacro define-mtorus-type (name &rest properties)
   "Define an element type for mtorus-torii.
 NAME is the name of the type and
 PROPERTIES is a list of property names as keywords that describe
@@ -303,7 +328,7 @@ function definition and a variable symbol that hold values given by
 the according values in PROPERTIES.
 
 For your convenience you can add or remove keywords later.
-See `mtorus-alter-element-type'."
+See `mtorus-alter-type'."
   (add-to-list 'mtorus-types name)
   (mapc #'(lambda (handler)
             (let* ((hname (car handler))
@@ -316,17 +341,18 @@ See `mtorus-alter-element-type'."
                `(defvar ,expanded-type-name nil
                  ,(format "Functions called ... %s" name)))
               (eval
-               `(defun ,expanded-type-fun-name (element)
+               `(defun ,expanded-type-fun-name (&optional element)
                  ,(format "Calls functions listed in the hook %s.
 Each function is called with argument ELEMENT."
                           expanded-type-name)
                  (run-hook-with-args ',expanded-type-name element)))))
         mtorus-type-hooks-alist)
-  (eval `(mtorus-alter-element-type ,name ,@properties))
+  (eval `(mtorus-alter-type ,name ,@properties))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
-(defalias 'mtorus-define-element-type 'define-mtorus-element-type)
+(defalias 'mtorus-define-type 'define-mtorus-type)
+(defalias 'mtorus-type-define 'define-mtorus-type)
 
-(defmacro mtorus-alter-element-type (name &rest properties)
+(defmacro mtorus-alter-type (name &rest properties)
   "Updates an element type."
   (if (member name mtorus-types)
       (mapc #'(lambda (handler)
@@ -335,12 +361,12 @@ Each function is called with argument ELEMENT."
                        (expanded-type-name
                         (mtorus-utils-symbol-conc 'mtorus-type name hhook))
                        (fun (cdr handler)))
-                  (add-hook expanded-type-name fun)))
+                  (and fun (add-hook expanded-type-name fun))))
             (mtorus-utils-parse-spec properties (mapcar 'car mtorus-type-hooks-alist)))
-    (mtorus-define-element-type name properties))
+    (define-mtorus-type name properties))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
-(defmacro undefine-mtorus-element-type (name &rest properties)
+(defmacro undefine-mtorus-type (name &rest properties)
   "Undefine an element type or some of the element type handler functions.
 NAME is the name of the type and
 PROPERTIES is a list of property names as keywords that describe
@@ -365,9 +391,9 @@ the according values in PROPERTIES."
                `(fmakunbound ,expanded-type-fun-name))))
         mtorus-type-hooks-alist)
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
-(defalias 'mtorus-undefine-element-type 'undefine-mtorus-element-type)
+(defalias 'mtorus-undefine-type 'undefine-mtorus-type)
 
-(defmacro mtorus-unalter-element-type (name &rest properties)
+(defmacro mtorus-unalter-type (name &rest properties)
   "Unregisters type handler functions of an element type."
   (when (member name mtorus-types)
     (mapc #'(lambda (handler)
@@ -377,9 +403,25 @@ the according values in PROPERTIES."
                       (mtorus-utils-symbol-conc 'mtorus-type name hhook))
                      (fun (cdr handler)))
                 (remove-hook expanded-type-name fun)))
-          (mtorus-utils-parse-spec properties (mapcar 'car mtorus-type-hooks-alist))))
+          (mtorus-utils-parse-spec properties
+                                   (mapcar 'car mtorus-type-hooks-alist))))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
+(defmacro mtorus-type-run-hooks-bouncer ()
+  "Installs some useful mtorus-element-run-HOOKS funs."
+  (mapc #'(lambda (hook)
+            (eval
+              `(defun
+               ,(intern (format "mtorus-type-run-%s" hook))
+               (type &optional element)
+               ,(format "Runs mtorus-type-TYPE-%s-function" hook)
+               (let ((fun (intern (format "mtorus-type-%s-%s-function"
+                                          type ',hook))))
+                 (funcall fun element)))))
+    (mapcar 'cdr mtorus-type-hooks-alist))
+  t)
+
+(mtorus-type-run-hooks-bouncer)
 
 
 
@@ -387,22 +429,221 @@ the according values in PROPERTIES."
 ;;; Predefined types
 ;;;
 
+  ;;; actually this will walk to mtorus.el some day
+  ;;; because it isnt really backend
 (defun mtorus-type-initialize ()
   "Initialization of predefined mtorus types."
   (interactive)
-  (mtorus-define-element-type
-   ring :predicate
-   (lambda (element)
-     (or (eq (mtorus-element-get-type element) 'ring)
-         (cond ((sequencep element)
-                (every (lambda (sub) (mtorus-element-p sub)) element))
-               (t nil)))))
-  (mtorus-define-element-type buffer :predicate bufferp)
-  (mtorus-define-element-type marker :predicate markerp))
+
+  ;; classic mtorus-1.6 ring simulation
+  (define-mtorus-type
+    ring
+    :predicate
+    (lambda (element)
+      (or (eq (mtorus-element-get-type element) 'ring)
+          (cond ((sequencep element)
+                 (every (lambda (sub) (mtorus-element-p sub)) element))
+                (t nil))))
+    :post-creation
+    (lambda (element)
+      (setq mtorus-current-ring element))
+    :post-selection
+    (lambda (element)
+      (setq mtorus-current-ring element)))
+  
+  ;; 
+  (define-mtorus-type
+    buffer
+    :predicate bufferp
+    :post-creation
+    (lambda (element)
+      (add-to-list mtorus-current-ring element)))
+  
+  ;; classic mtorus-1.6 marker simulation
+  (define-mtorus-type
+    marker
+    :predicate markerp
+    :post-creation
+    (lambda (element)
+      (add-to-list mtorus-current-ring element))))
 
 ;;(mtorus-type-buffer-p-function 'mtorus-universe)
 ;;(mtorus-type-ring-p-function 'mtorus-universe)
+;; put that schlong in that post creation hook for buffer and marker
 
+
+
+
+
+;;;;
+;;;; Topology
+;;;;
+;;;;
+
+
+;; We use a rather straightforward network/graph structure to induce a graph
+;; (and thus a topology) on the set of elements:
+;; 
+;;           aunt - father - uncle
+;;               \    |    /
+;;    sister - current element - brother
+;;               /         \
+;;             daughter    son
+
+(defvar mtorus-topologies nil
+  "List of available topologies.
+This is for internal purposes only.
+Do not fiddle with it.")
+
+(defcustom mtorus-current-topology nil
+  "Current topology to use when navigating through the mtorus universe."
+  :group 'mtorus-topology)
+
+(defcustom mtorus-topology-alist
+  '((next-element . next-element-fun)
+    (prev-element . prev-element-fun)
+    (parent-element . parent-element-fun)
+    (child-element . child-element-fun))
+  "Alist of function specifiers and corresponding funs used
+for determining topology issues in the `mtorus-universe'.
+
+These functions are really generic and neither per-type nor per-element!
+
+If you want to hook into one of the latter cases use
+`mtorus-type-hooks-alist' and `mtorus-element-hooks-alist' respectively.
+
+Entries look like
+  \(hook-specifier . hook-name\)
+
+Any of these is essential for MTorus and listed here:
+
+- next-element 
+According to the sketch below this function determines the brother
+of an element.
+
+- prev-element
+According to the sketch below this function determines the sister
+of an element.
+
+- parent-element
+According to the sketch below this function determines the father
+of an element.
+
+- child element
+According to the sketch below this function determines the son
+of an element.
+
+Of course the other relatives are computed as follows:
+- aunt = sister of father
+- uncle = brother of father
+- daughter = sister of son
+
+Topology sketch:
+
+          aunt - father - uncle
+              \    |    /
+   sister - current element - brother
+              /         \
+            daughter    son
+
+
+Furthermore it is obvious that relative elements does not necessarily
+have to be distinct, i.e. it is possible to form networks where the
+aunt of an element is its brother."
+  :group 'mtorus-element)
+
+
+(defmacro define-mtorus-topology (name &rest properties)
+  "Define an element topology for mtorus-torii.
+NAME is the name of the topology and
+PROPERTIES is a list of property names as keywords that describe
+the topology in detail.
+
+Valid keywords are taken from the `mtorus-topology-alist'
+For each of those keywords listed there this macro provides both a
+function definition and a variable symbol that hold values given by
+the according values in PROPERTIES."
+  (add-to-list 'mtorus-topologies name)
+  (mapc #'(lambda (handler)
+            (let* ((hname (car handler))
+                   (hhook (cdr handler))
+                   (expanded-topology-name
+                    (mtorus-utils-symbol-conc 'mtorus-topology name hhook))
+                   (expanded-topology-fun-name
+                    expanded-topology-name))
+              (eval
+               `(defvar ,expanded-topology-name nil
+                 ,(format "Function called ... %s" name)))
+              (eval
+               `(defun ,expanded-topology-fun-name (&optional element)
+                 ,(format "Determines %s from ELEMENT using the topology %s."
+                          hname name)
+                 (identity element)))))
+        mtorus-topology-alist)
+  (eval `(mtorus-alter-topology ,name ,@properties))
+  `',(mtorus-utils-symbol-conc 'mtorus-topology name))
+(defalias 'mtorus-define-topology 'define-mtorus-topology)
+(defalias 'mtorus-topology-define 'define-mtorus-topology)
+
+(defmacro mtorus-alter-topology (name &rest properties)
+  "Updates a topology."
+  (if (member name mtorus-topologies)
+      (mapc #'(lambda (handler)
+                (let* ((hname (car handler))
+                       (hhook (cdr (assoc hname mtorus-topology-alist)))
+                       (expanded-topology-fun
+                        (mtorus-utils-symbol-conc 'mtorus-topology name hname))
+                       (expanded-topology-name
+                        (mtorus-utils-symbol-conc 'mtorus-topology name hhook))
+                       (fun (cdr handler)))
+                  (and fun
+                       (set expanded-topology-name expanded-topology-fun)
+                       (fset expanded-topology-fun fun))))
+            (mtorus-utils-parse-spec properties (mapcar 'car mtorus-topology-alist)))
+    (define-mtorus-topology name properties))
+  `',(mtorus-utils-symbol-conc 'mtorus-topology name))
+
+
+  ;;; actually this will walk to mtorus.el some day
+  ;;; because it isnt really backend
+(defun mtorus-topology-initialize ()
+  "Installs a topology on the current `mtorus-universe'."
+  (interactive)
+
+  ;; a trivial topology ... there are NO elements in the neighborhood
+  (define-mtorus-topology
+    trivial
+    :next-element
+    (lambda (element)
+      (identity element))
+    :prev-element
+    (lambda (element)
+      (identity element))
+    :parent-element
+    (lambda (element)
+      (identity element))
+    :child-element
+    (lambda (element)
+      (identity element)))
+
+  ;; the standard topology
+  (setq mtorus-current-topology
+        (define-mtorus-topology
+          standard
+          :next-element
+          (lambda (element)
+            (identity element))
+          :prev-element
+          (lambda (element)
+            (identity element))
+          :parent-element
+          (lambda (element)
+            (identity element))
+          :child-element
+          (lambda (element)
+            (identity element)))))
+
+(mtorus-topology-initialize)
 
 
 
@@ -412,7 +653,34 @@ the according values in PROPERTIES."
 ;;;;
 ;;;;
 
+(defcustom mtorus-element-hooks-alist
+  '((read-from-element . read-from-element-funs)
+    (save-to-element . save-to-element-funs)
+    (alter-element . alter-element-funs))
+  "Alist of hook specifiers and corresponding hooks to be
+added in the form `mtorus-element-<NAME>-<HOOKNAME>'.
+
+This allows per-element specific functions.
+
+Entries look like
+  \(specifier . value\)
+
+If `value' is a list ...
+
+Some of the predefined specs:
+
+- read-from-element
+
+- save-to-element
+
+- alter-element 
+"
+  :group 'mtorus-element)
+
+
 ;; next abstraction step would be to see elements just as another mtorus-type ;)
+
+
 
 
 ;;;
@@ -481,7 +749,7 @@ See also: `mtorus-element-generate-cookie-function'"
   (intern (format "mtorus-%s-%.8x" (or type 'element) (random))))
 ;;(mtorus-element-generate-cookie 'ring)
 
-(defun mtorus-element-create (&rest element-spec)
+(defun define-mtorus-element (&rest element-spec)
   "Creates and returns an mtorus-element.
 Use ELEMENT-SPEC to determine the properties
 
@@ -490,8 +758,8 @@ ELEMENT-SPEC is a set of :keyword value pairs.
 The mandatory keywords are:
 
   :type -- type of the element, this must be a valid 
-    mtorus-element-type specifier
-    see `define-mtorus-element-type'
+    mtorus-type specifier
+    see `define-mtorus-type'
 
 Optional keywords are:
 
@@ -524,6 +792,8 @@ Created elements are stored in `mtorus-elements' for reference."
          (e-name (or (cdr (assoc 'name e-spec))
                      (format "MTorus %s: %s" e-type e-symbol)))
          (e-value (cdr (assoc 'value e-spec))))
+
+    (mtorus-type-run-pre-creation-funs e-type e-symbol)
     (set e-symbol e-value)
 
     ;;; this should move externally ... registration is not part of creation
@@ -546,8 +816,13 @@ Created elements are stored in `mtorus-elements' for reference."
                     (val (cdr propval)))
                 (put e-symbol prop val)))
           e-spec)
-    e-symbol))
 
+    (mtorus-type-run-post-creation-funs e-type e-symbol)
+
+    e-symbol))
+(defalias 'mtorus-define-element 'define-mtorus-element)
+(defalias 'mtorus-element-define 'define-mtorus-element)
+(defalias 'mtorus-element-create 'define-mtorus-element)
 
 
 ;;;
@@ -604,12 +879,6 @@ not (yet?) update rings that posess this element."
                            :variable-documentation "This is the MTorus Universe.\nDON'T FIDDLE WITH THIS.")
     (mtorus-element-register 'mtorus-universe)))
 ;;(mtorus-type-ring-p 'mtorus-universe)
-
-;;; ToDo:
-;; element creation should (just like type creation) initialize some function handlers
-;; - jump-next/previous handler
-;; - select/unselect-element handler
-;; (basically just the stuff we've added to the types definition)
 
 
 

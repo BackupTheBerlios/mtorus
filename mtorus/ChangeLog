@@ -1,3 +1,17 @@
+2004-07-22  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-element.el: (mtorus-topology)
+	- added mtorus topology. this is most elementary
+	as the navigation on the torus depends on this
+	(currently only trivial topologies are available)
+
+	* mtorus.el:
+	- added frontend (i.e. interactive) funs to access the
+	newer backend
+	- bugfixed obarray issue when trying to create elements
+	without having created types
+
+	
 2004-07-20  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-element.el: bugfixed some leftovers
