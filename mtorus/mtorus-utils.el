@@ -1,5 +1,5 @@
 ;;; mtorus-utils.el --- auxiliary stuff used
-;; $Id: mtorus-utils.el,v 1.5 2004/08/10 22:22:44 hroptatyr Exp $
+;; $Id: mtorus-utils.el,v 1.6 2004/08/11 18:53:59 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -104,11 +104,10 @@ The original plist is not modified."
 
 (cond ((fboundp 'time-less-p)
        (defalias 'mtorus-utils-time-less-p 'time-less-p))
-      (t (fset 'mtorus-utils-time-less-p
-               (lambda (t1 t2)
+      (t (defun mtorus-utils-time-less-p (t1 t2)
                  (or (< (car t1) (car t2))
                      (and (= (car t1) (car t2))
-                          (< (nth 1 t1) (nth 1 t2))))))))
+                          (< (nth 1 t1) (nth 1 t2)))))))
 
 ;;;
 (defun mtorus-utils-keyword->symbol (key)

@@ -1,3 +1,12 @@
+2004-08-11  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el:
+	- modified navigation via aunt/uncle/niece/nephew
+
+	* mtorus-display.el: (mtorus-display-siblings-2)
+	- installed another display function
+
+
 2004-08-10  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* all files:

@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.18 2004/08/11 07:17:15 ska Exp $
+;; $Id: mtorus.el,v 1.19 2004/08/11 18:53:59 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.1 $Revision: 1.18 $"
+(defconst mtorus-version "2.1 $Revision: 1.19 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -1064,8 +1064,9 @@ This is done with respect to the current topology."
                         mtorus-current-element)
                        (t (mtorus-determine-parent-element
                            mtorus-current-element))))
-         (newelt (mtorus-determine-prev-element
-                  curelt)))
+         (newelt (mtorus-determine-child-element
+                  (mtorus-determine-prev-element
+                   curelt))))
     (mtorus-element-set-current newelt)
     (mtorus-display-message
      message
@@ -1081,8 +1082,9 @@ This is done with respect to the current topology."
                         mtorus-current-element)
                        (t (mtorus-determine-parent-element
                            mtorus-current-element))))
-         (newelt (mtorus-determine-next-element
-                  curelt)))
+         (newelt (mtorus-determine-child-element
+                  (mtorus-determine-next-element
+                   curelt))))
     (mtorus-element-set-current newelt)
     (mtorus-display-message
      message
