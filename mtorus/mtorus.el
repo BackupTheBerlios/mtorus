@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.14 2004/08/02 00:22:15 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.15 2004/08/02 22:20:56 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.0 $Revision: 1.14 $"
+(defconst mtorus-version "2.0 $Revision: 1.15 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -64,6 +64,46 @@
 ;; EmacsWiki page:
 ;; http://www.emacswiki.org/wiki.pl?MTorus
 ;;
+
+;;; Getting Started
+;;  ===============
+;; - Place the MTorus directory somewhere in your 'load-path and put
+;; 
+;;     (require 'mtorus)
+;; 
+;; in your .emacs
+;; Now you have a useless element on your torus called mtorus-universe.
+;; 
+;; * Try to find some buffers that are worth to form a ring and do
+;; 
+;;     M-x mtorus-create-ring RET
+;; 
+;; Enter some appropriate name for that ring.
+;; Go to a buffer which should be part of the ring created and enter
+;; 
+;;     M-x mtorus-create-element RET
+;; 
+;; When asked for a type just enter buffer or marker.
+;; These are the only types predefined by default.
+;; 
+;; - Repeat this element creation step until you have enough buffers on your ring.
+;; 
+;; - Now you are able to navigate through your torus with the commands
+;; 
+;;     mtorus-next-element
+;;     mtorus-prev-element
+;;     mtorus-parent-element
+;;     mtorus-child-element
+;; 
+;; To treat your command history with care, bind these commands to some keys.
+;; 
+;; Suggested Keybindings:
+;; - I have H-kp-6, H-kp-4, H-kp-8 and H-kp-2 keys bound to
+;;   mtorus-next-element, mtorus-prev-element, mtorus-parent-element and
+;;   mtorus-child-element respectively -- [[hroptatyr]]
+;;   For selection of an element I user H-kp-5
+;; - I prefer shift -left/right/up/down -- StefanKamphausen
+
 
 ;;; Usage:
 ;;  ======
@@ -178,7 +218,7 @@ behavior of the functions to your habits.  Hopefully it is possible to
 find good settings for many people."
   :tag "MTorus"
   :link '(url-link :tag "Home Page"
-                   "http://mtorus.berlios.de")
+          "http://mtorus.berlios.de")
   :link '(emacs-commentary-link
           :tag "Commentary in mtorus.el" "mtorus.el")
   :prefix "mtorus-"
@@ -192,6 +232,12 @@ find good settings for many people."
   :type 'hook
   :group 'mtorus)
 
+(defcustom mtorus-after-load-hook nil
+  "Hook run after mtorus is loaded."
+  :type 'hook
+  :group 'mtorus)
+
+;;; REVISE ME!!
 (defcustom mtorus-init-ring-emtpy nil
   "*Whether to create a new ring with a marker at point."
   :type 'boolean
@@ -295,31 +341,32 @@ Special care for CUA users is taken."
     (global-set-key '[(shift up)]    'mtorus-next-ring)
     (global-set-key '[(shift down)]  'mtorus-prev-ring)))
    
-   ;; ring handling: f11
-   (global-set-key '[(f11)]
-     'mtorus-new-ring)
-   (global-set-key '[(shift f11)]
-     'mtorus-delete-ring)
-   (global-set-key '[(control f11)]
+  ;; ring handling: f11
+  (global-set-key '[(f11)]
+    'mtorus-new-ring)
+  (global-set-key '[(shift f11)]
+    'mtorus-delete-ring)
+  (global-set-key '[(control f11)]
     'mtorus-notify)
-   ;; marker handling: f12
-   (global-set-key '[(f12)]
-     'mtorus-new-marker)
-   (global-set-key '[(shift f12)]
-     'mtorus-delete-current-marker)
-   (global-set-key '[(control f12)]
-     'mtorus-update-current-marker)
+  ;; marker handling: f12
+  (global-set-key '[(f12)]
+    'mtorus-new-marker)
+  (global-set-key '[(shift f12)]
+    'mtorus-delete-current-marker)
+  (global-set-key '[(control f12)]
+    'mtorus-update-current-marker)
 
    ;;; new keybindings
-   (global-set-key '[(hyper kp-6)] 'mtorus-next-element)
-   (global-set-key '[(hyper kp-4)] 'mtorus-prev-element)
-   (global-set-key '[(hyper kp-8)] 'mtorus-parent-element)
-   (global-set-key '[(hyper kp-2)] 'mtorus-child-element)
-   (global-set-key '[(hyper kp-0)] 'mtorus-create-element)
-   (global-set-key '[(hyper kp-5)] 'mtorus-select-current-element)
-   (global-set-key '[(hyper kp-decimal)] 'mtorus-delete-current-element)
+  (global-set-key '[(hyper kp-6)] 'mtorus-next-element)
+  (global-set-key '[(hyper kp-4)] 'mtorus-prev-element)
+  (global-set-key '[(hyper kp-8)] 'mtorus-parent-element)
+  (global-set-key '[(hyper kp-2)] 'mtorus-child-element)
+  (global-set-key '[(hyper kp-0)] 'mtorus-create-element)
+  (global-set-key '[(hyper kp-5)] 'mtorus-select-current-element)
+  (global-set-key '[(hyper kp-decimal)] 'mtorus-delete-current-element)
 
-   )
+  )
+
 
 ;;;;;;;;;;;;;;;;;;;
 ;; MTorus internals
@@ -339,7 +386,7 @@ always uses the real buffer list.  It skips all buffers that
   :group 'mtorus)
 
 ;; Variables
-(defvar mtorus-torus nil  ;; obsolete?
+(defvar mtorus-torus nil ;; obsolete?
   "Alist containing the rings of markers.
 The main data structure of MTorus:
  \(\(\"ring1\" \(\marker1
@@ -422,41 +469,6 @@ which is always run."
 
 
 
-;;; Compatibilty:
-;; This code was written in and for XEmacs but I hope that these lines
-;; make a good and working GNU compatibility
-(if (featurep 'xemacs)
-    (progn ;; XEmacs code:
-      (defun mtorus-message (msg)
-        (display-message 'no-log msg))
-      (defalias 'mtorus-make-extent         'make-extent)
-      (defalias 'mtorus-set-extent-property 'set-extent-property)
-      (defalias 'mtorus-delete-extent       'delete-extent)
-      )
-  ( ;; GNU Emacs code:
-   (defun mtorus-message (msg)
-     (message msg))
-   (defalias 'mtorus-make-extent 'make-overlay)
-   (defalias 'mtorus-set-extent-property 'overlay-put)
-   (defalias 'mtorus-delete-extent 'delete-overlay)
-   )
-  )
-(defun mtorus-set-extent-face (extent face)
-  (mtorus-set-extent-property extent 'face face))
-
-;; from matlab.el:
-(cond ((fboundp 'point-at-bol)
-       (defalias 'mtorus-point-at-bol 'point-at-bol)
-       (defalias 'mtorus-point-at-eol 'point-at-eol))
-      ((fboundp 'line-beginning-position)
-       (defalias 'mtorus-point-at-bol 'line-beginning-position)
-       (defalias 'mtorus-point-at-eol 'line-end-position))
-      (t
-       (defmacro mtorus-point-at-bol ()
-     (save-excursion (beginning-of-line) (point)))
-       (defmacro mtorus-point-at-eol ()
-     (save-excursion (end-of-line) (point)))))
-
 ;; Testing function
 ;(defun tt ()
 ;  ""
@@ -472,17 +484,17 @@ which is always run."
 
 ;; Commands
 
-;; all other functions depend on this being run first, so not further
-;; autoloads
-;;###autoload
-(defun mtorus-init ()
-  "This inits the torus in `mtorus-torus' and creates the special ring
-  `mtorus-buffer-list-name' (see there)."
-  (interactive)
-  (setq mtorus-torus nil)
-  (mtorus-new-ring mtorus-buffer-list-name)
-  (mtorus-maybe-install-kill-hook)
-  (run-hooks 'mtorus-init-hook))
+;; ;; all other functions depend on this being run first, so not further
+;; ;; autoloads
+;; ;;###autoload
+;; (defun mtorus-init ()
+;;   "This inits the torus in `mtorus-torus' and creates the special ring
+;;   `mtorus-buffer-list-name' (see there)."
+;;   (interactive)
+;;   (setq mtorus-torus nil)
+;;   (mtorus-new-ring mtorus-buffer-list-name)
+;;   (mtorus-maybe-install-kill-hook)
+;;   (run-hooks 'mtorus-init-hook))
 
 ;; REVISE ME!
 (defun mtorus-universe-init ()
@@ -546,12 +558,7 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
            (intern
             (completing-read
              "Type: "
-             (let ((types
-                    (or mtorus-types
-                        (progn
-                          (mtorus-type-initialize)
-                          mtorus-types))))
-               (mapvector 'identity types)) nil t)))
+             (mtorus-type-obarray) nil t)))
           (name
            ;;; REVISE ME!
            (read-string "Name: " (cond ((eq type 'buffer)
@@ -636,12 +643,12 @@ elements to only those of a certain type."
   "Detach an mtorus element ELEMENT1 from ELEMENT2."
   (interactive
    (let* ((el1 (let* ((table (mtorus-element-obarray+names 'all))
-                     (curel (car (rassoc mtorus-current-element table))))
-                (cdr
-                 (assoc (completing-read
-                         "Detach element: "
-                         table nil t curel)
-                        table))))
+                      (curel (car (rassoc mtorus-current-element table))))
+                 (cdr
+                  (assoc (completing-read
+                          "Detach element: "
+                          table nil t curel)
+                         table))))
           (rels (mapcar #'car (mtorus-topology-find 'standard el1)))
           (el2 (let* ((eobarr (mtorus-element-obarray
                                #'(lambda (element type)
@@ -662,7 +669,7 @@ elements to only those of a certain type."
                          table)))))
      (list el1 el2)))
   (run-hook-with-args 'mtorus-detach-element-pre-hook element1 element2)
-  (mtorus-element-detach element1 element2)
+  (mtorus-element-detach-relations element1 element2)
   (run-hook-with-args 'mtorus-detach-element-post-hook element1 element2)
   (mtorus-display-message
    message
@@ -671,17 +678,47 @@ elements to only those of a certain type."
    :message '("%s detached from %s" element otherelement))
   element1)
 
+(defun mtorus-attach-element-relation (element1 element2 relation &optional type-filter)
+  "Attach an mtorus element ELEMENT1 to ELEMENT2 with RELATION."
+  (interactive
+   (let* ((table (mtorus-element-obarray+names 'all))
+          (curel (car (rassoc mtorus-current-element table)))
+          (el1 (cdr
+                (assoc (completing-read
+                        "Attach element: "
+                        table nil t curel)
+                       table)))
+          (el2 (cdr
+                (assoc (completing-read
+                        "To element: "
+                        table nil t)
+                       table)))
+          (rels (mtorus-topology-neighborhood-obarray 'standard))
+          (rel (completing-read
+                "Relation: "
+                rels nil t)))
+     (list el1 el2 rel)))
+  (run-hook-with-args 'mtorus-detach-element-pre-hook element1 element2)
+  (mtorus-element-detach-relation element1 element2 relation)
+  (run-hook-with-args 'mtorus-detach-element-post-hook element1 element2)
+  (mtorus-display-message
+   message
+   :element element1
+   :otherelement element2
+   :message '("%s attached to %s" element otherelement))
+  element1)
+
 
 (defun mtorus-detach-element-relation (element1 element2 relation &optional type-filter)
   "Detach an mtorus element ELEMENT1 from ELEMENT2 with RELATION."
   (interactive
    (let* ((el1 (let* ((table (mtorus-element-obarray+names 'all))
-                     (curel (car (rassoc mtorus-current-element table))))
-                (cdr
-                 (assoc (completing-read
-                         "Detach element: "
-                         table nil t curel)
-                        table))))
+                      (curel (car (rassoc mtorus-current-element table))))
+                 (cdr
+                  (assoc (completing-read
+                          "Detach element: "
+                          table nil t curel)
+                         table))))
           (rels (mapcar #'car (mtorus-topology-find 'standard el1)))
           (el2 (let* ((eobarr (mtorus-element-obarray
                                #'(lambda (element type)
@@ -729,143 +766,143 @@ elements to only those of a certain type."
 
 
 ;; old 1.6
-(defun mtorus-new-ring (ring-name)
-  "Create a ring with name RING-NAME (asked from user).
-If `mtorus-init-ring-emtpy' is nil a marker at the current point
-is created and pushed on the list, otherwise the ring stays empty for
-the moment.  Makes the new ring the current ring.
-
-It won't create a ring with a name that already exists."
-  (interactive "sRing name: ")
-  (if (mtorus-ringp ring-name)
-      (mtorus-message
-       (format "A ring with name \"%s\" already exists."
-               ring-name))
-    (let* ((content (mtorus-initial-ring-contents ring-name))
-          (ring (cons ring-name (list content))))
-      (setq mtorus-torus
-            (append mtorus-torus
-                    (list ring))))
-    (mtorus-switch-to-ring ring-name t)))
-
-
-;; old 1.6
-(defun mtorus-delete-ring (&optional ring-name)
-  "Delete the ring with name RING-NAME.
-If none is given it is asked from the user."
-  (interactive)
-  (let ((rname (or ring-name (mtorus-ask-ring))))
-    (if (not (mtorus-special-ringp rname))
-        (if (y-or-n-p (format "delete ring \"%s\"? " rname))
-            (setq mtorus-torus
-                  (delete* rname mtorus-torus :key 'car
-                           :test 'equal)))
-      (mtorus-message "can't delete special rings"))))
+;; (defun mtorus-new-ring (ring-name)
+;;   "Create a ring with name RING-NAME (asked from user).
+;; If `mtorus-init-ring-emtpy' is nil a marker at the current point
+;; is created and pushed on the list, otherwise the ring stays empty for
+;; the moment.  Makes the new ring the current ring.
+;; 
+;; It won't create a ring with a name that already exists."
+;;   (interactive "sRing name: ")
+;;   (if (mtorus-ringp ring-name)
+;;       (mtorus-message
+;;        (format "A ring with name \"%s\" already exists."
+;;                ring-name))
+;;     (let* ((content (mtorus-initial-ring-contents ring-name))
+;;           (ring (cons ring-name (list content))))
+;;       (setq mtorus-torus
+;;             (append mtorus-torus
+;;                     (list ring))))
+;;     (mtorus-switch-to-ring ring-name t)))
 
 
 ;; old 1.6
-(defun mtorus-rename-ring (&optional ring-name new-name)
-  "Rename RING-NAME to NEW-NAME asking if omitted."
-  (interactive)
-  (let* ((rname (or ring-name (mtorus-ask-ring)))
-        (nname (or new-name (read-string
-                             (format "rename \"%s\" to: " rname)))))
-    (if (not (mtorus-special-ringp rname))
-        (setcar (assoc rname mtorus-torus) nname)
-      (mtorus-message "can't rename special rings"))))
+;; (defun mtorus-delete-ring (&optional ring-name)
+;;   "Delete the ring with name RING-NAME.
+;; If none is given it is asked from the user."
+;;   (interactive)
+;;   (let ((rname (or ring-name (mtorus-ask-ring))))
+;;     (if (not (mtorus-special-ringp rname))
+;;         (if (y-or-n-p (format "delete ring \"%s\"? " rname))
+;;             (setq mtorus-torus
+;;                   (delete* rname mtorus-torus :key 'car
+;;                            :test 'equal)))
+;;       (mtorus-message "can't delete special rings"))))
+
 
 ;; old 1.6
-(defun mtorus-switch-to-ring (ring-name &optional quiet)
-  "Make RING-NAME the current ring."
-  (while (not (mtorus-current-ringp ring-name))
-    (mtorus-rotate-rings 1))
-  (unless quiet (mtorus-notify)))
+;; (defun mtorus-rename-ring (&optional ring-name new-name)
+;;   "Rename RING-NAME to NEW-NAME asking if omitted."
+;;   (interactive)
+;;   (let* ((rname (or ring-name (mtorus-ask-ring)))
+;;         (nname (or new-name (read-string
+;;                              (format "rename \"%s\" to: " rname)))))
+;;     (if (not (mtorus-special-ringp rname))
+;;         (setcar (assoc rname mtorus-torus) nname)
+;;       (mtorus-message "can't rename special rings"))))
 
 ;; old 1.6
-(defun mtorus-next-ring ()
-  "Make the next ring on the torus the current ring."
-  (interactive)
-  (mtorus-switch-to-ring (mtorus-nth-ring-name 1)))
+;; (defun mtorus-switch-to-ring (ring-name &optional quiet)
+;;   "Make RING-NAME the current ring."
+;;   (while (not (mtorus-current-ringp ring-name))
+;;     (mtorus-rotate-rings 1))
+;;   (unless quiet (mtorus-notify)))
 
 ;; old 1.6
-(defun mtorus-prev-ring ()
-  "Make the next ring on the torus the current ring."
-  (interactive)
-  (mtorus-switch-to-ring
-   (mtorus-nth-ring-name (1- (length mtorus-torus)))))
+;; (defun mtorus-next-ring ()
+;;   "Make the next ring on the torus the current ring."
+;;   (interactive)
+;;   (mtorus-switch-to-ring (mtorus-nth-ring-name 1)))
+
+;; old 1.6
+;; (defun mtorus-prev-ring ()
+;;   "Make the next ring on the torus the current ring."
+;;   (interactive)
+;;   (mtorus-switch-to-ring
+;;    (mtorus-nth-ring-name (1- (length mtorus-torus)))))
 
 
 
-;; Marker
-(defun mtorus-modify-torus (ring-name func)
-  (if (not (mtorus-special-ringp ring-name))
-      (let ((new-ring
-             (funcall func (copy-list
-                            (mtorus-ring-by-name ring-name)))))
-        (setq mtorus-torus
-              (mapcar #'(lambda (item)
-                          (if (string= (first item)
-                                       ring-name)
-                              new-ring
-                            item))
-                      mtorus-torus))
-        )
-    (mtorus-message "can't edit special lists")))
-
-
-(defun mtorus-rename-current-ring (&optional ring-name new-name)
-  "Rename RING-NAME to NEW-NAME asking if omitted."
-  (interactive)
-  (let* ((rname (or ring-name (mtorus-ask-ring)))
-        (nname
-         (or new-name
-             (read-string (format "rename \"%s\" to: " rname)))))
-    (mtorus-modify-torus
-     ring-name #'(lambda (ring)
-                   (list nname (second ring))))))
-
-(defun mtorus-new-marker ()
-  "Create a new marker at the current position.
-It is added to the current ring and made the current entry in that
-ring."
-  (interactive)
-  (mtorus-modify-torus
-   (mtorus-current-ring-name)
-    #'(lambda (ring)
-         (list (first ring)
-               (cons (point-marker)
-                     (second ring))))))
-
-
-
-(defun mtorus-update-current-marker ()
-  "Make the current marker point to the current position."
-  (interactive)
-  (mtorus-modify-torus
-   (mtorus-current-ring-name)
-    #'(lambda (ring)
-        (set-marker (first (second ring))
-                    (point))
-        ring)))
-
-(defun mtorus-next-marker ()
-  "Switch to the next marker in the current ring.
-Handles special rings different like cycling the buffer list when the
-current's ring name is equal to `mtorus-buffer-list-name'."
-  (interactive)
-  (if (mtorus-special-ringp (mtorus-current-ring-name))
-      (mtorus-blist-next)
-    (mtorus-rotate-entries 0 1))
-  (mtorus-jump-current-marker))
-(defalias 'mtorus-next-entry 'mtorus-next-marker)
-
-(defun mtorus-prev-marker ()
-  (interactive)
-  (if (mtorus-special-ringp (mtorus-current-ring-name))
-      (mtorus-blist-prev)
-    (mtorus-rotate-entries 0 -1))
-  (mtorus-jump-current-marker))
-(defalias 'mtorus-prev-entry 'mtorus-prev-marker)
+;; ;; Marker
+;; (defun mtorus-modify-torus (ring-name func)
+;;   (if (not (mtorus-special-ringp ring-name))
+;;       (let ((new-ring
+;;              (funcall func (copy-list
+;;                             (mtorus-ring-by-name ring-name)))))
+;;         (setq mtorus-torus
+;;               (mapcar #'(lambda (item)
+;;                           (if (string= (first item)
+;;                                        ring-name)
+;;                               new-ring
+;;                             item))
+;;                       mtorus-torus))
+;;         )
+;;     (mtorus-message "can't edit special lists")))
+;; 
+;; 
+;; (defun mtorus-rename-current-ring (&optional ring-name new-name)
+;;   "Rename RING-NAME to NEW-NAME asking if omitted."
+;;   (interactive)
+;;   (let* ((rname (or ring-name (mtorus-ask-ring)))
+;;         (nname
+;;          (or new-name
+;;              (read-string (format "rename \"%s\" to: " rname)))))
+;;     (mtorus-modify-torus
+;;      ring-name #'(lambda (ring)
+;;                    (list nname (second ring))))))
+;; 
+;; (defun mtorus-new-marker ()
+;;   "Create a new marker at the current position.
+;; It is added to the current ring and made the current entry in that
+;; ring."
+;;   (interactive)
+;;   (mtorus-modify-torus
+;;    (mtorus-current-ring-name)
+;;     #'(lambda (ring)
+;;          (list (first ring)
+;;                (cons (point-marker)
+;;                      (second ring))))))
+;; 
+;; 
+;; 
+;; (defun mtorus-update-current-marker ()
+;;   "Make the current marker point to the current position."
+;;   (interactive)
+;;   (mtorus-modify-torus
+;;    (mtorus-current-ring-name)
+;;     #'(lambda (ring)
+;;         (set-marker (first (second ring))
+;;                     (point))
+;;         ring)))
+;; 
+;; (defun mtorus-next-marker ()
+;;   "Switch to the next marker in the current ring.
+;; Handles special rings different like cycling the buffer list when the
+;; current's ring name is equal to `mtorus-buffer-list-name'."
+;;   (interactive)
+;;   (if (mtorus-special-ringp (mtorus-current-ring-name))
+;;       (mtorus-blist-next)
+;;     (mtorus-rotate-entries 0 1))
+;;   (mtorus-jump-current-marker))
+;; (defalias 'mtorus-next-entry 'mtorus-next-marker)
+;; 
+;; (defun mtorus-prev-marker ()
+;;   (interactive)
+;;   (if (mtorus-special-ringp (mtorus-current-ring-name))
+;;       (mtorus-blist-prev)
+;;     (mtorus-rotate-entries 0 -1))
+;;   (mtorus-jump-current-marker))
+;; (defalias 'mtorus-prev-entry 'mtorus-prev-marker)
 
 
 
@@ -938,7 +975,7 @@ See `mtorus-next-element-function' on how to determine this."
   "Determines the previous element on the current torus.
 See `mtorus-prev-element-function' on how to determine this."
   (let* ((child (funcall mtorus-child-element-function
-                          (mtorus-topology-standard-children element))))
+                         (mtorus-topology-standard-children element))))
     child))
 
 
@@ -1034,220 +1071,220 @@ Selection can be done by:
 
 
 
-;; old 1.6
-(defun mtorus-jump-current-marker ()
-  "Move point to the point and buffer defined by current marker."
-  (interactive)
-  (let ((buf (mtorus-current-buffer))
-        (pos (mtorus-current-pos)))
-    (if (buffer-live-p buf)
-        (progn
-          (switch-to-buffer buf)
-          (goto-char pos)
-          (mtorus-notify))
-      (mtorus-message (format "no such buffer %s"
-                              (buffer-name buf)))
-      (mtorus-delete-current-marker))))
-;(defun mtorus-delete-marker ()
-;  "Delete the current marker from the current ring."
-;  (interactive)
-;  (if (not (mtorus-special-ringp
-;            (mtorus-current-ring-name)))
-;      (let ((ring (mtorus-current-ring)))
-;        (set-marker (mtorus-current-marker) nil)
-;        (setf (second ring)
-;              (cdr (second (mtorus-current-ring)))))
-;    (mtorus-message "can't delete from special rings")))
-
-;(defun mtorus-update-current-marker ()
-;  "Make the current marker point to the current position.
-;Actually the current marker is deleted and a new one is created at the
-;current position."
-;  (interactive)
-;  (and (mtorus-delete-marker)
-;       (mtorus-new-marker)))
-
-;; FIXME: can the actual rotation be done by one backend function for
-;; this and for mtorus-rotate-rings?
-(defun mtorus-rotate-entries (nth-ring amount)
-  "Rotate the NTH-RING AMOUNT times."
-  (let* ((ring (mtorus-ring-by-name
-                (mtorus-nth-ring-name nth-ring)))
-         (rlist (second ring)))
-    (if (> amount 0)
-        (while (> amount 0)
-          (setq rlist
-                (append (cdr rlist)
-                        (list (car rlist))))
-          (setq amount (1- amount)))
-      (while (< amount 0)
-        (setq rlist
-              (append (last rlist)
-                      (butlast rlist)))
-        (setq amount (1+ amount))))
-    (setf (second ring) rlist)))
-    
-;; Special Ring: The Buffer List
-(defun mtorus-blist-next ()
-  "Cycle the real buffer list.
-This can be used separately and is always used when navigating through
-the default ring.  It skips buffers for that
-`mtorus-buffer-skip-p' returns t."
-  (interactive)
-  (let ((blist (mtorus-buffer-list)))
-    (when (> (length blist) 1)
-      (bury-buffer)
-      (while (funcall mtorus-buffer-skip-p (current-buffer))
-        (bury-buffer)))))
-
-(defun mtorus-blist-prev ()
-  "Cycle the real buffer list.
-This can be used separately and is always used when navigating through
-the default ring.  It skips buffers for that
-`mtorus-buffer-skip-p' returns t."
-  (interactive)
-  (let ((blist (mtorus-buffer-list)))
-    (if blist (switch-to-buffer (car (reverse blist))))))
-
-(defun mtorus-buffer-list ()
-  "Return a filtered buffer list according to `mtorus-buffer-skip-p'."
-  (mtorus-grep (buffer-list)
-               (lambda (buf)
-                 (not (funcall mtorus-buffer-skip-p buf)))))
-
-(defun mtorus-grep (l predicate)
-  "Helper function for a grep over a list.
-Apply predicate PREDICATE to all elements of list L and return a list
-consisting of all elements PREDICATE returned t for."
-  (defun helper (ret-list rest)
-    (if (null rest)
-        (reverse ret-list)
-      (progn
-        (if (funcall predicate (car rest))
-            (setq ret-list (cons (car rest) ret-list)))
-        (helper ret-list (cdr rest)))))
-  (helper '() l))
+;; ;; old 1.6
+;; (defun mtorus-jump-current-marker ()
+;;   "Move point to the point and buffer defined by current marker."
+;;   (interactive)
+;;   (let ((buf (mtorus-current-buffer))
+;;         (pos (mtorus-current-pos)))
+;;     (if (buffer-live-p buf)
+;;         (progn
+;;           (switch-to-buffer buf)
+;;           (goto-char pos)
+;;           (mtorus-notify))
+;;       (mtorus-message (format "no such buffer %s"
+;;                               (buffer-name buf)))
+;;       (mtorus-delete-current-marker))))
+;; ;(defun mtorus-delete-marker ()
+;; ;  "Delete the current marker from the current ring."
+;; ;  (interactive)
+;; ;  (if (not (mtorus-special-ringp
+;; ;            (mtorus-current-ring-name)))
+;; ;      (let ((ring (mtorus-current-ring)))
+;; ;        (set-marker (mtorus-current-marker) nil)
+;; ;        (setf (second ring)
+;; ;              (cdr (second (mtorus-current-ring)))))
+;; ;    (mtorus-message "can't delete from special rings")))
+;; 
+;; ;(defun mtorus-update-current-marker ()
+;; ;  "Make the current marker point to the current position.
+;; ;Actually the current marker is deleted and a new one is created at the
+;; ;current position."
+;; ;  (interactive)
+;; ;  (and (mtorus-delete-marker)
+;; ;       (mtorus-new-marker)))
+;; 
+;; ;; FIXME: can the actual rotation be done by one backend function for
+;; ;; this and for mtorus-rotate-rings?
+;; (defun mtorus-rotate-entries (nth-ring amount)
+;;   "Rotate the NTH-RING AMOUNT times."
+;;   (let* ((ring (mtorus-ring-by-name
+;;                 (mtorus-nth-ring-name nth-ring)))
+;;          (rlist (second ring)))
+;;     (if (> amount 0)
+;;         (while (> amount 0)
+;;           (setq rlist
+;;                 (append (cdr rlist)
+;;                         (list (car rlist))))
+;;           (setq amount (1- amount)))
+;;       (while (< amount 0)
+;;         (setq rlist
+;;               (append (last rlist)
+;;                       (butlast rlist)))
+;;         (setq amount (1+ amount))))
+;;     (setf (second ring) rlist)))
+;;     
+;; ;; Special Ring: The Buffer List
+;; (defun mtorus-blist-next ()
+;;   "Cycle the real buffer list.
+;; This can be used separately and is always used when navigating through
+;; the default ring.  It skips buffers for that
+;; `mtorus-buffer-skip-p' returns t."
+;;   (interactive)
+;;   (let ((blist (mtorus-buffer-list)))
+;;     (when (> (length blist) 1)
+;;       (bury-buffer)
+;;       (while (funcall mtorus-buffer-skip-p (current-buffer))
+;;         (bury-buffer)))))
+;; 
+;; (defun mtorus-blist-prev ()
+;;   "Cycle the real buffer list.
+;; This can be used separately and is always used when navigating through
+;; the default ring.  It skips buffers for that
+;; `mtorus-buffer-skip-p' returns t."
+;;   (interactive)
+;;   (let ((blist (mtorus-buffer-list)))
+;;     (if blist (switch-to-buffer (car (reverse blist))))))
+;; 
+;; (defun mtorus-buffer-list ()
+;;   "Return a filtered buffer list according to `mtorus-buffer-skip-p'."
+;;   (mtorus-grep (buffer-list)
+;;                (lambda (buf)
+;;                  (not (funcall mtorus-buffer-skip-p buf)))))
+;; 
+;; (defun mtorus-grep (l predicate)
+;;   "Helper function for a grep over a list.
+;; Apply predicate PREDICATE to all elements of list L and return a list
+;; consisting of all elements PREDICATE returned t for."
+;;   (defun helper (ret-list rest)
+;;     (if (null rest)
+;;         (reverse ret-list)
+;;       (progn
+;;         (if (funcall predicate (car rest))
+;;             (setq ret-list (cons (car rest) ret-list)))
+;;         (helper ret-list (cdr rest)))))
+;;   (helper '() l))
 
 
 ;; Backend Level Functions
-(defun mtorus-initial-ring-contents (ring-name)
-  "Return a list to initialize RING-NAME with.
-Takes care of special ring names"
-  (list 
-   (cond
-    ((mtorus-special-ringp ring-name)
-     (concat "special: "
-             ring-name))
-    ((not mtorus-init-ring-emtpy)
-     (point-marker))
-    (t
-     ()))))
-
-(defun mtorus-ask-ring ()
-  "Ask the user to choose a ring (with completion)."
-  (let ((default (mtorus-current-ring-name)))
-    (completing-read
-     (format "choose a ring (%s): " default)
-     mtorus-torus
-     nil t nil nil
-     default)))
-
-(defun mtorus-rotate-rings (amount)
-  "Rotate the rings on the torus AMOUNT times."
-  (if (> amount 0)
-      (while (> amount 0)
-        (setq mtorus-torus
-              (append (cdr mtorus-torus)
-                      (list (car mtorus-torus))))
-        (setq amount (1- amount)))
-    (while (< amount 0)
-      (setq mtorus-torus
-            (append (last mtorus-torus)
-                    (butlast (car mtorus-torus))))
-      (setq amount (1+ amount)))))
-
-
-;; Ring Accessors
-(defun mtorus-current-ring-name ()
-  "Return a string containing the name of the current ring."
-  (mtorus-nth-ring-name 0))
-
-(defun mtorus-nth-ring-name (nth)
-  "Return a string containing the name of the NTH ring on the torus.
-For the current entry NTH is 0 and for the last NTH is length -1."
-  (car (elt mtorus-torus (% nth (length mtorus-torus)))))
-
-(defun mtorus-ring-names ()
-  "Return a list of all available ring names as strings."
-  (mapcar 'car mtorus-torus))
-
-(defun mtorus-current-ring ()
-  "Return the current ring as a list.
-The current ring is always the CDR of the 0th in the list."
-  (first mtorus-torus))
-
-(defun mtorus-ring-by-name (ring-name)
-  "Return the ASSOC of NAME in `mtorus-torus'."
-  (assoc ring-name mtorus-torus))
-
-(defun mtorus-add-to-ring (ring-name marker)
-  "Put MARKER on the ring named RING-NAME."
-  (let ((ring (mtorus-ring-by-name ring-name)))
-    (setf (second ring)
-          (cons marker
-                (second ring)))))
-
-;; Entry Accessors
-(defun mtorus-current-entry-string ()
-  "Return a string containing a description of the current entry."
-  (mtorus-entry-to-string (mtorus-current-marker)))
-
-(defun mtorus-entry-to-string (marker)
-  "Return a stringified description of MARKER."
-  (if (buffer-live-p (marker-buffer marker))
-    (format "%s@%d"
-            (buffer-name (marker-buffer marker))
-            (marker-position marker))
-    "*del*"))
-
-(defun mtorus-current-marker ()
-  "Return the current marker in the current ring."
-  (if (mtorus-special-ringp (mtorus-current-ring-name))
-    ;; FIXME: good enough for GC?
-      (point-marker)
-    (first (second (first mtorus-torus)))))
-
-(defun mtorus-current-pos ()
-  "Return the current entry's position in the buffer."
-  (marker-position (mtorus-current-marker)))
-
-(defun mtorus-current-buffer ()
-  "Return the current entry's buffer."
-  (marker-buffer (mtorus-current-marker)))
-
-;; Predicates
-(defun mtorus-current-ringp (ring-name)
-  "Return non-nil if RING-NAME is the current ring.
-That is if it is first on the torus."
- (string-equal (mtorus-current-ring-name) ring-name))
-
-(defun mtorus-special-ringp (ring-name)
-  "Return non-nil if the ring-name looks like a special ring.
-By convention special ring names begin with a '*'."
-  (char-equal ?* (elt ring-name 0)))
-
-(defun mtorus-ringp (ring-name)
-  "Return non-nil if ring-name is found on `mtorus-torus'."
-  (and (stringp ring-name)
-       (assoc ring-name mtorus-torus)))
-
-(defun mtorus-maybe-install-kill-hook ()
-  "Install some functions on the `kill-emacs-hook' according to custom
-  settings and assuring no duplicates."
-  (when (and mtorus-save-on-exit
-             (not (memq 'mtorus-quit kill-emacs-hook)))
-    (add-hook 'kill-emacs-hook
-              'mtorus-quit)))
+;; (defun mtorus-initial-ring-contents (ring-name)
+;;   "Return a list to initialize RING-NAME with.
+;; Takes care of special ring names"
+;;   (list 
+;;    (cond
+;;     ((mtorus-special-ringp ring-name)
+;;      (concat "special: "
+;;              ring-name))
+;;     ((not mtorus-init-ring-emtpy)
+;;      (point-marker))
+;;     (t
+;;      ()))))
+;; 
+;; (defun mtorus-ask-ring ()
+;;   "Ask the user to choose a ring (with completion)."
+;;   (let ((default (mtorus-current-ring-name)))
+;;     (completing-read
+;;      (format "choose a ring (%s): " default)
+;;      mtorus-torus
+;;      nil t nil nil
+;;      default)))
+;; 
+;; (defun mtorus-rotate-rings (amount)
+;;   "Rotate the rings on the torus AMOUNT times."
+;;   (if (> amount 0)
+;;       (while (> amount 0)
+;;         (setq mtorus-torus
+;;               (append (cdr mtorus-torus)
+;;                       (list (car mtorus-torus))))
+;;         (setq amount (1- amount)))
+;;     (while (< amount 0)
+;;       (setq mtorus-torus
+;;             (append (last mtorus-torus)
+;;                     (butlast (car mtorus-torus))))
+;;       (setq amount (1+ amount)))))
+;; 
+;; 
+;; ;; Ring Accessors
+;; (defun mtorus-current-ring-name ()
+;;   "Return a string containing the name of the current ring."
+;;   (mtorus-nth-ring-name 0))
+;; 
+;; (defun mtorus-nth-ring-name (nth)
+;;   "Return a string containing the name of the NTH ring on the torus.
+;; For the current entry NTH is 0 and for the last NTH is length -1."
+;;   (car (elt mtorus-torus (% nth (length mtorus-torus)))))
+;; 
+;; (defun mtorus-ring-names ()
+;;   "Return a list of all available ring names as strings."
+;;   (mapcar 'car mtorus-torus))
+;; 
+;; (defun mtorus-current-ring ()
+;;   "Return the current ring as a list.
+;; The current ring is always the CDR of the 0th in the list."
+;;   (first mtorus-torus))
+;; 
+;; (defun mtorus-ring-by-name (ring-name)
+;;   "Return the ASSOC of NAME in `mtorus-torus'."
+;;   (assoc ring-name mtorus-torus))
+;; 
+;; (defun mtorus-add-to-ring (ring-name marker)
+;;   "Put MARKER on the ring named RING-NAME."
+;;   (let ((ring (mtorus-ring-by-name ring-name)))
+;;     (setf (second ring)
+;;           (cons marker
+;;                 (second ring)))))
+;; 
+;; ;; Entry Accessors
+;; (defun mtorus-current-entry-string ()
+;;   "Return a string containing a description of the current entry."
+;;   (mtorus-entry-to-string (mtorus-current-marker)))
+;; 
+;; (defun mtorus-entry-to-string (marker)
+;;   "Return a stringified description of MARKER."
+;;   (if (buffer-live-p (marker-buffer marker))
+;;     (format "%s@%d"
+;;             (buffer-name (marker-buffer marker))
+;;             (marker-position marker))
+;;     "*del*"))
+;; 
+;; (defun mtorus-current-marker ()
+;;   "Return the current marker in the current ring."
+;;   (if (mtorus-special-ringp (mtorus-current-ring-name))
+;;     ;; FIXME: good enough for GC?
+;;       (point-marker)
+;;     (first (second (first mtorus-torus)))))
+;; 
+;; (defun mtorus-current-pos ()
+;;   "Return the current entry's position in the buffer."
+;;   (marker-position (mtorus-current-marker)))
+;; 
+;; (defun mtorus-current-buffer ()
+;;   "Return the current entry's buffer."
+;;   (marker-buffer (mtorus-current-marker)))
+;; 
+;; ;; Predicates
+;; (defun mtorus-current-ringp (ring-name)
+;;   "Return non-nil if RING-NAME is the current ring.
+;; That is if it is first on the torus."
+;;  (string-equal (mtorus-current-ring-name) ring-name))
+;; 
+;; (defun mtorus-special-ringp (ring-name)
+;;   "Return non-nil if the ring-name looks like a special ring.
+;; By convention special ring names begin with a '*'."
+;;   (char-equal ?* (elt ring-name 0)))
+;; 
+;; (defun mtorus-ringp (ring-name)
+;;   "Return non-nil if ring-name is found on `mtorus-torus'."
+;;   (and (stringp ring-name)
+;;        (assoc ring-name mtorus-torus)))
+;; 
+;; (defun mtorus-maybe-install-kill-hook ()
+;;   "Install some functions on the `kill-emacs-hook' according to custom
+;;   settings and assuring no duplicates."
+;;   (when (and mtorus-save-on-exit
+;;              (not (memq 'mtorus-quit kill-emacs-hook)))
+;;     (add-hook 'kill-emacs-hook
+;;               'mtorus-quit)))
 
 
 

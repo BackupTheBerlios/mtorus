@@ -1,5 +1,23 @@
 2004-08-02  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
+	* all files: established some GNU Emacs compatibility
+
+	* mtorus-type.el:
+	- added pre/post-choose/unchoose funs to keep track of
+	navigations
+	- added alive-p method and auto-detaching code in predefined
+	types
+
+	* mtorus.el:
+	- stripped from old code :|
+
+	* mtorus-element.el
+	- element unregistration now looks for relations on the 
+	topology and undefines them, too
+
+
+2004-08-02  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
 	* mtorus.el:
 	- added basic interactive functions for detaching
 	- abstracted message display

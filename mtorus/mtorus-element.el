@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.7 2004/08/02 00:22:15 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.8 2004/08/02 22:20:56 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -62,8 +62,6 @@
 ;;; Code:
 
 (require 'mtorus-utils)
-;; (require 'mtorus-topology)
-;; (require 'mtorus-type)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Administrative Settings ;;
@@ -75,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.7 $"
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.8 $"
   "Version of mtorus-element backend.")
 
 
@@ -233,7 +231,8 @@ Some of the predefined specs:
   "Checks whether ELEMENT is an mtorus element and
 returns PROPERTY."
   (and (mtorus-element-p element)
-       (get element property default)))
+       (or (get element property)
+           default)))
 
 (defmacro mtorus-element-get-property-bouncer (&rest keywords)
   "Installs some useful mtorus-element-get-* funs
@@ -377,6 +376,7 @@ identified by `mtorus-elements-hash-table'."
 (defun mtorus-element-unregister (element)
   "Unregisters ELEMENT completely."
   (and (mtorus-element-valid-p element)
+       (mtorus-element-detach element)
        (remhash element (eval mtorus-elements-hash-table))))
 
 (defun mtorus-element-delete (element)
@@ -396,7 +396,16 @@ not (yet?) update rings that posess this element."
   (run-hook-with-args 'mtorus-element-post-deletion-hook element)
   element)
 
-(defun mtorus-element-detach (element1 element2)
+(defun mtorus-element-detach (element)
+  "Detaches ELEMENT completely from any relation."
+  (and (mtorus-element-p element)
+       (let ((elems (mtorus-topology-find 'standard element)))
+         (mapc #'(lambda (rel)
+                   (mtorus-topology-undefine-relation 'standard (cdr rel) element (car rel)))
+               elems)))
+  element)
+
+(defun mtorus-element-detach-relations (element1 element2)
   "Detaches ELEMENT1 from any relation it has with ELEMENT2."
   (run-hook-with-args 'mtorus-element-pre-detachment-hook element1 element2)
   (and (mtorus-element-p element1)

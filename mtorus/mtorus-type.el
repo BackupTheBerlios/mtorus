@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.4 2004/08/02 00:22:15 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.5 2004/08/02 22:20:56 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,12 +53,13 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.4 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.5 $"
   "Version of mtorus-type backend.")
 
 
 (defcustom mtorus-type-methods-alist
   '((predicate . p)
+    (alive-p . alive-p)
     (inherit-value . value)
     (inherit-selection . select))
   "Alist of method specifiers and corresponding functions to be
@@ -95,8 +96,12 @@ If you intend to work on lists of elements use actions instead.
     (post-deletion . post-deletion-funs)
     (pre-selection . pre-selection-funs)
     (post-selection . post-seletion-funs)
-    (pre-deselection . pre-deselection-funs)
-    (post-deselection . post-deselection-funs))
+
+    ;; hooks run when navigating around
+    (pre-choose . pre-choose-funs)
+    (post-choose . post-choose-funs)
+    (pre-unchoose . pre-unchoose-funs)
+    (post-unchoose . post-unchoose-funs))
   "Alist of hook specifiers and corresponding hooks to be
 added in the form `mtorus-type-<NAME>-<HOOKNAME>'.
 
@@ -367,6 +372,25 @@ Returns just the elements of type TYPE."
       (mtorus-topology-standard-define-siblings element element))))
 
 
+;;; some UI functions
+
+(defun mtorus-type-obarray (&optional type-filter)
+  "Makes an obarray from `mtorus-types'.
+Optional TYPE-FILTER limits this set to only certain types."
+  (let ((types (or mtorus-types
+                   (progn
+                     (mtorus-type-initialize)
+                     mtorus-types)))
+        (filt (mtorus-element-type-filter->fun-preds
+               type-filter))
+        (type-obarray (vector)))
+    (mapc #'(lambda (type)
+              (setq type-obarray
+                    (vconcat type-obarray (vector type))))
+           types)
+    type-obarray))
+
+
 
 
 ;;;
@@ -394,6 +418,10 @@ Returns just the elements of type TYPE."
           (cond ((sequencep element)
                  (every (lambda (sub) (mtorus-element-p sub)) element))
                 (t nil))))
+
+    :inherit-selection
+    (lambda (element)
+        (mtorus-child-element))
 
     :post-creation mtorus-attach-element-to-universe
     ;;:post-selection
@@ -424,8 +452,18 @@ Returns just the elements of type TYPE."
     :inherit-selection
     (lambda (element)
       (switch-to-buffer (eval element)))
+
+    :alive-p
+    (lambda (element)
+      (buffer-live-p (eval element)))
     
-    :post-creation mtorus-attach-element-to-current-ring)
+    :post-creation mtorus-attach-element-to-current-ring
+
+    :pre-selection
+    (lambda (element)
+      (unless (mtorus-type-buffer-alive-p element)
+        (mtorus-element-set-current (mtorus-determine-parent-element element))
+        (mtorus-element-detach element))))
 
   (add-hook 'mtorus-type-buffer-post-creation-funs
             #'(lambda (element)
@@ -456,7 +494,17 @@ Returns just the elements of type TYPE."
           (goto-char (marker-position (eval element))))
         (switch-to-buffer buf)))
 
-    :post-creation mtorus-attach-element-to-current-ring)
+    :alive-p
+    (lambda (element)
+      (buffer-live-p (marker-buffer (eval element))))
+
+    :post-creation mtorus-attach-element-to-current-ring
+
+    :pre-selection
+    (lambda (element)
+      (unless (mtorus-type-marker-alive-p element)
+        (mtorus-element-set-current (mtorus-determine-parent-element element))
+        (mtorus-element-detach element))))
 
   (add-hook 'mtorus-type-marker-post-creation-funs
             #'(lambda (element)

@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.4 2004/08/02 00:22:15 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.5 2004/08/02 22:20:56 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.4 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.5 $"
   "Version of mtorus-topology backend.")
 
 
@@ -154,9 +154,10 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                                      (eval
                                       (mtorus-utils-symbol-conc
                                        'mtorus-topology ',name neighborhood)))))
-                       (maphash #'(lambda (elem relation)
-                                    (add-to-list 'relations (cons elem relation)))
-                                neighbors)))
+                       (and neighbors
+                            (maphash #'(lambda (elem relation)
+                                         (add-to-list 'relations (cons elem relation)))
+                                     neighbors))))
                  neighborhoods)
            relations))
 
@@ -171,10 +172,24 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                            (eval
                             (mtorus-utils-symbol-conc
                              'mtorus-topology ',name relation)))))
-             (maphash #'(lambda (elem relation)
-                          (add-to-list 'relations (cons elem relation)))
-                      neighbors))
+             (and neighbors
+                  (maphash #'(lambda (elem relation)
+                               (add-to-list 'relations (cons elem relation)))
+                           neighbors)))
            relations))
+
+       ;; an obarray function
+       (defun ,(mtorus-utils-symbol-conc topology-name 'neighborhood 'obarray)
+         (&optional filter)
+         ,(format "Makes an obarray from `%s'.\nOptional FILTER limits this set to only certain neighborhoods."
+                  (mtorus-utils-symbol-conc topology-name 'neighborhoods))
+         (let ((neighborhood-obarray (vector)))
+           (mapc #'(lambda (nhood)
+                     (setq neighborhood-obarray
+                           (vconcat neighborhood-obarray (vector nhood))))
+                 ,(mtorus-utils-symbol-conc topology-name 'neighborhoods))
+           neighborhood-obarray))
+
 
        ;;; this is the define-mtorus-topology-<TOPO>-neighborhood macro
        (defmacro
@@ -286,8 +301,9 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                             (cdr-safe
                              (mtorus-utils-parse-key ':filter properties)))))))))
            `',neighborhood-name))
-       (defalias ',(mtorus-utils-symbol-conc topology-name 'define 'neighborhood)
-         ',(mtorus-utils-symbol-conc 'define topology-name 'neighborhood))))
+       (and (featurep 'xemacs)
+            (defalias ',(mtorus-utils-symbol-conc topology-name 'define 'neighborhood)
+              ',(mtorus-utils-symbol-conc 'define topology-name 'neighborhood)))))
     `',(mtorus-utils-symbol-conc topology-name)))
 (defalias 'mtorus-define-topology 'define-mtorus-topology)
 (defalias 'mtorus-topology-define 'define-mtorus-topology)
@@ -314,6 +330,13 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
 (defun mtorus-topology-neighborhoods (topology)
   "Return all neighborhoods currently registered with TOPOLOGY."
   (eval (mtorus-utils-symbol-conc 'mtorus-topology topology 'neighborhoods)))
+
+(defun mtorus-topology-neighborhood-obarray (topology &optional filter)
+  "Makes an obarray from `mtorus-topology-<TOPOLOGY>-neighborhoods'.
+Optional FILTER limits this set to only certain neighborhoods."
+  (when (mtorus-topology-p topology)
+    (funcall (mtorus-utils-symbol-conc 'mtorus-topology topology 'neighborhood-obarray)
+             filter)))
 
 
 (defun mtorus-topology-find (topology element)

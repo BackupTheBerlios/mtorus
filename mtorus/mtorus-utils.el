@@ -1,5 +1,5 @@
 ;;; mtorus-utils.el --- auxiliary stuff used
-;; $Id: mtorus-utils.el,v 1.2 2004/07/28 23:13:58 hroptatyr Exp $
+;; $Id: mtorus-utils.el,v 1.3 2004/08/02 22:20:56 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -37,10 +37,6 @@
 
 ;;; Code:
 
-(require 'cl-extra)
-;;; sorry about that, but i use (every ...) and (some ...) constructions
-
-
 (defun mtorus-utils-keyword->symbol (key)
   ":keyword -> 'keyword"
   (intern (substring (format "%s" key) 1)))
@@ -76,7 +72,8 @@ and make the result a symbol."
                ((symbolp keyword)
                 (mtorus-utils-symbol->keyword keyword))
                (t nil))))
-    (mtorus-utils-keyval->cons keyword (plist-get spec keyword default))))
+    (mtorus-utils-keyval->cons keyword (or (plist-get spec keyword)
+                                           default))))
 (defun mtorus-utils-parse-key-cdr (keyword spec &optional default)
   "Parses SPEC for keyword KEY and returns its value."
   (cdr-safe (mtorus-utils-parse-key keyword spec default)))
@@ -96,6 +93,54 @@ will be in the result list."
                            (t (mtorus-utils-parse-key key spec))))
                  spec-keywords))))
 ;;(mtorus-utils-parse-spec '(:type a :nother b) '(:type :name))
+
+
+
+;;; Compatibilty:
+;; This code was written in and for XEmacs but I hope that these lines
+;; make a good and working GNU compatibility
+(if (featurep 'xemacs)
+    (progn ;; XEmacs code:
+      (defun mtorus-message (msg)
+        (display-message 'no-log msg))
+      (defalias 'mtorus-make-extent         'make-extent)
+      (defalias 'mtorus-set-extent-property 'set-extent-property)
+      (defalias 'mtorus-delete-extent       'delete-extent)
+      )
+  (progn ;; GNU Emacs code:
+    (defun mtorus-message (msg)
+      (message msg))
+    (defalias 'mtorus-make-extent 'make-overlay)
+    (defalias 'mtorus-set-extent-property 'overlay-put)
+    (defalias 'mtorus-delete-extent 'delete-overlay)
+
+    (defun plist-to-alist (plist)
+      "Convert property list PLIST into the equivalent association-list form.
+The alist is returned.
+The original plist is not modified."
+      (let (alist)
+        (while plist
+          (setq alist (cons (cons (car plist) (cadr plist)) alist))
+          (setq plist (cddr plist)))
+        (nreverse alist)))
+    )
+  )
+(defun mtorus-set-extent-face (extent face)
+  (mtorus-set-extent-property extent 'face face))
+
+;; from matlab.el:
+(cond ((fboundp 'point-at-bol)
+       (defalias 'mtorus-point-at-bol 'point-at-bol)
+       (defalias 'mtorus-point-at-eol 'point-at-eol))
+      ((fboundp 'line-beginning-position)
+       (defalias 'mtorus-point-at-bol 'line-beginning-position)
+       (defalias 'mtorus-point-at-eol 'line-end-position))
+      (t
+       (defmacro mtorus-point-at-bol ()
+         (save-excursion (beginning-of-line) (point)))
+       (defmacro mtorus-point-at-eol ()
+         (save-excursion (end-of-line) (point)))))
+
 
 
 
