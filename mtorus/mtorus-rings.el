@@ -1,5 +1,5 @@
 ;;; mtorus-rings.el --- ring functions
-;; $Id: mtorus-rings.el,v 1.4 2004/05/22 22:51:40 hroptatyr Exp $
+;; $Id: mtorus-rings.el,v 1.5 2004/06/18 00:01:58 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -104,6 +104,20 @@ Some keywords are predefined (and thus are essential for mtorus):
 :contents  contents of an element
 :validity-check  functions to be run on the value of :contents
   to see if a certain element is still valid.")
+
+(defvar mtorus-ring-element-types
+  '(buffer marker)
+;;   (remove nil
+;;           (mapvector (lambda (sym)
+;;                        (when (string-match "^\\(?:[^-]+p\\|.+-p\\)$" (format "%s" sym))
+;;                          sym))
+;;                      obarray))
+  "Element types are any predicate symbol of the `obarray'.")
+
+;; auxiliary stuff
+(defvar mtorus-ring-current-ring nil)
+(defvar mtorus-ring-current-element nil)
+
 
 ;; hooks
 
@@ -229,9 +243,13 @@ with the name NAME."
   (car-safe
    (rassoc name
            (mapcar 'mtorus-ring-ring+name
-                   mtorus-ring))))
+                   mtorus-rings))))
 
-
+(defun mtorus-ring-get-current-ring (&rest ignore)
+  "Returns the ring currently marked as current ring"
+  (unless mtorus-ring-current-ring
+    (setq mtorus-ring-current-ring (car mtorus-rings)))
+  mtorus-ring-current-ring)
 
 
 
@@ -243,8 +261,9 @@ with the name NAME."
 
 (defun mtorus-ring-add-element (ring &rest element-spec)
   "Adds an element (described by ELEMENT-SPEC) to RING."
-  (and (boundp ring)
-       (add-to-list ring element-spec)))
+  (if (boundp ring)
+      (add-to-list ring element-spec)
+    (message "Ring %s not bound." ring)))
 ;;(mtorus-ring-add-element 'test-ring :type 'buffer :contents (current-buffer))
 
 
