@@ -15,6 +15,7 @@ project's page | http://developer.berlios.de/projects/mtorus
 wiki page | EmacsWiki#MTorus
 ska's page | http://www.skamphausen.de/software/skamacs/mtorus.html
 hroptatyr's page | http://www.hlidskjalf.de/MtorusPage.html
+mailing lists | http://developer.berlios.de/mail/?group_id=1633
 
 - GettingStarted
 - DetailedDescription
@@ -23,13 +24,15 @@ hroptatyr's page | http://www.hlidskjalf.de/MtorusPage.html
 
 ** News
 
+- 2004/08/02: MTorus has mailing lists now.
+    See http://developer.berlios.de/mail/?group_id=1633
+
+- 2004/08/02: fixed GNUmacs compatibility:<br/>
+    Thanks to SteveTaylor who reminded me that there was another Emacs flavor ;).
+
 - 2004/08/02: First bugfixes:<br/>
     mtorus-child-element-function is now defined and used<br/>
     interactive support for detaching elements added
-
-- 2004/08/01: Finally the first working new MTorus :)<br/>
-Though it has very spare navigation and almost no display support,
-this can be seen as the first alpha (the backends are quite final at the moment).
 
 [[RecentNews][more ...]]
 
