@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.7 2004/08/09 01:11:44 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.8 2004/08/10 22:22:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.7 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.8 $"
   "Version of mtorus-topology backend.")
 
 
@@ -113,38 +113,18 @@ Do not fiddle with it.")
 ;; "
 ;;   :group 'mtorus-topology)
 
-(defmacro define-mtorus-topology (name &rest properties)
-  "Define an element topology for mtorus-torii.
-NAME is the name of the topology and
-PROPERTIES is a list of property names as keywords that describe
-the topology in detail.
 
-Valid keywords are taken from the `mtorus-topology-alist'
-For each of those keywords listed there this macro provides both a
-function definition and a variable symbol that hold values given by
-the according values in PROPERTIES.
-
-A topology for mtorus is a function which takes an mtorus-element as
-argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
-  (add-to-list 'mtorus-topologies name)
-  (let* ((topology-name
-          (mtorus-utils-symbol-conc 'mtorus-topology name))
-         (topology-neighborhoods-name
-          (mtorus-utils-symbol-conc topology-name 'neighborhoods))
-         (topology-neighborhoods
-          (cdr-safe (mtorus-utils-parse-key :neighborhoods properties))))
+(defmacro define-mtorus-topology-find-functions (name &rest properties)
+  "Define find functions for the mtorus topology NAME.
+This really is just an externalized function to not overkill the
+define-mtorus-topology macro."
+  (let ((topology-name
+         (mtorus-utils-symbol-conc 'mtorus-topology name)))
     (mapc
      #'eval
-     `((defvar ,topology-name (make-hash-table :test 'equal)
-         ,(format "MTorus topology."))
-       (defvar ,topology-neighborhoods-name topology-neighborhoods
-         ,(format "MTorus topology.\nValue indicates registered neighborhoods"))
-
-
-
        ;;; find functions
-       ;; this is the find function `mtorus-topology-<TOPO>-find'
-       (defun ,(mtorus-utils-symbol-conc topology-name 'find)
+     ;; this is the find function `mtorus-topology-<TOPO>-find'
+     `((defun ,(mtorus-utils-symbol-conc topology-name 'find)
          (element)
          ,(format "Finds all occurences of ELEMENT (along with their neighborhood type")
          (let ((neighborhoods (mtorus-topology-neighborhoods ',name))
@@ -186,7 +166,41 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                        (mtorus-utils-symbol-conc
                         'mtorus-topology ',name relation))))
                  neighborhoods)
-           relations))
+           relations))))
+    t))
+
+
+
+(defmacro define-mtorus-topology (name &rest properties)
+  "Define an element topology for mtorus-torii.
+NAME is the name of the topology and
+PROPERTIES is a list of property names as keywords that describe
+the topology in detail.
+
+Valid keywords are taken from the `mtorus-topology-alist'
+For each of those keywords listed there this macro provides both a
+function definition and a variable symbol that hold values given by
+the according values in PROPERTIES.
+
+A topology for mtorus is a function which takes an mtorus-element as
+argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
+  (add-to-list 'mtorus-topologies name)
+  (let* ((topology-name
+          (mtorus-utils-symbol-conc 'mtorus-topology name))
+         (topology-neighborhoods-name
+          (mtorus-utils-symbol-conc topology-name 'neighborhoods))
+         (topology-neighborhoods
+          (cdr-safe (mtorus-utils-parse-key :neighborhoods properties))))
+    (mapc
+     #'eval
+     `((defvar ,topology-name (make-hash-table :test 'equal)
+         ,(format "MTorus topology."))
+       (defvar ,topology-neighborhoods-name topology-neighborhoods
+         ,(format "MTorus topology.\nValue indicates registered neighborhoods"))
+
+
+       ;;; find functions
+       (define-mtorus-topology-find-functions ',name)
 
        ;; an obarray function
        (defun ,(mtorus-utils-symbol-conc topology-name 'neighborhood 'obarray)
@@ -215,10 +229,10 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
          ,(format "Converts given NEIGHBORHOOD as %s-NEIGHBORHOOD to 'NEIGHBORHOOD"
                   topology-name)
          (intern
-          (replace-regexp-in-string
+          (mtorus-utils-replace-regexp-in-string
            ,(format "%s-" name)
            ""
-           (format "%s" (replace-regexp-in-string
+           (format "%s" (mtorus-utils-replace-regexp-in-string
                          "mtorus-topology-"
                          ""
                          (format "%s" neighborhood))))))
@@ -231,11 +245,11 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
 in %s" topology-name)
          (let ((nh (,(mtorus-utils-symbol-conc topology-name 'neighborhood-name)
                     neighborhood)))
-         (when (,(mtorus-utils-symbol-conc topology-name 'neighborhood 'p)
-                nh)
-           (funcall
-            (mtorus-utils-symbol-conc ',topology-name nh)
-            element))))
+           (when (,(mtorus-utils-symbol-conc topology-name 'neighborhood 'p)
+                  nh)
+             (funcall
+              (mtorus-utils-symbol-conc ',topology-name nh)
+              element))))
 
        ;;; the more general macro: define-mtorus-topology-neighborhood
              ;;; <insert me here> 
@@ -274,8 +288,8 @@ in %s" topology-name)
                   ,(format "Defines NEIGHBORHOOD relation in %s between ELEMENT1 and ELEMENT2."
                            topology-name)
                   ;;(when (,(mtorus-utils-symbol-conc topology-name 'neighborhood-p) neighborhood)
-                    (funcall (mtorus-utils-symbol-conc ',topology-name 'define neighborhood)
-                             element1 element2))
+                  (funcall (mtorus-utils-symbol-conc ',topology-name 'define neighborhood)
+                           element1 element2))
 
                 ;;; more general undefinition function of relations
                 ;; e.g. mtorus-topology-standard-undefine-relation
@@ -284,8 +298,8 @@ in %s" topology-name)
                   ,(format "Defines NEIGHBORHOOD relation in %s between ELEMENT1 and ELEMENT2."
                            topology-name)
                   ;;(when (,(mtorus-utils-symbol-conc topology-name 'neighborhood-p) neighborhood)
-                    (funcall (mtorus-utils-symbol-conc ',topology-name 'undefine neighborhood)
-                             element1 element2))
+                  (funcall (mtorus-utils-symbol-conc ',topology-name 'undefine neighborhood)
+                           element1 element2))
 
 
                 ;;; e.g. mtorus-topology-standard-define-siblings
@@ -302,9 +316,9 @@ in %s" topology-name)
                   (and (mtorus-element-p element1)
                        (mtorus-element-p element2)
                        (let ((el1-hashtable (or (gethash element1 ,'(\, neighborhood-name))
-                                            (puthash element1
-                                                     (make-hash-table :test 'equal)
-                                                     ,'(\, neighborhood-name))))
+                                                (puthash element1
+                                                         (make-hash-table :test 'equal)
+                                                         ,'(\, neighborhood-name))))
                              (el2-hashtable (and
                                              ,'(\, undirected-relation-p)
                                              (or (gethash element2
@@ -412,7 +426,7 @@ Optional argument RELATION defines how to determine the neighbors of ELEMENT2
        (and (featurep 'xemacs)
             (defalias ',(mtorus-utils-symbol-conc topology-name 'define 'neighborhood)
               ',(mtorus-utils-symbol-conc 'define topology-name 'neighborhood)))))
-    `',(mtorus-utils-symbol-conc topology-name)))
+    `',topology-name))
 (defalias 'mtorus-define-topology 'define-mtorus-topology)
 (defalias 'mtorus-topology-define 'define-mtorus-topology)
   ;;; TODO: add some check if the elements passed to the funs are really registered
@@ -424,7 +438,7 @@ Optional argument RELATION defines how to determine the neighbors of ELEMENT2
 (defun mtorus-topology-name (topology)
   "Converts given TOPOLOGY as mtorus-topology-TOPOLOGY to 'TOPOLOGY"
   (intern
-   (replace-regexp-in-string
+   (mtorus-utils-replace-regexp-in-string
     "mtorus-topology-"
     ""
     (format "%s" topology))))
@@ -438,7 +452,7 @@ Optional argument RELATION defines how to determine the neighbors of ELEMENT2
 ;; (defun mtorus-topology-neighborhood-name (topology neighborhood)
 ;;   "Converts given NEIGHBORHOOD as mtorus-topology-TOPOLOGY-NEIGHBORHOOD to 'NEIGHBORHOOD"
 ;;   (intern
-;;    (replace-regexp-in-string
+;;    (mtorus-utils-replace-regexp-in-string
 ;;     "mtorus-topology-"
 ;;     ""
 ;;     (format "%s" topology))))
@@ -581,7 +595,7 @@ neighborhood type RELATION."
 `mtorus-detach-element-from-ATTACH'."
   (let* ((attach
           (intern
-           (replace-regexp-in-string
+           (mtorus-utils-replace-regexp-in-string
             "^mtorus-\\(.+\\)$" "\\1" (format "%s" attach))))
          (m+attach
           (mtorus-utils-symbol-conc 'mtorus attach))

@@ -1,5 +1,5 @@
 ;;; mtorus-display.el --- display functions of the mtorus
-;; $Id: mtorus-display.el,v 1.4 2004/08/09 01:11:44 hroptatyr Exp $
+;; $Id: mtorus-display.el,v 1.5 2004/08/10 22:22:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-display-version "Version: 0.1 $Revision: 1.4 $"
+(defconst mtorus-display-version "Version: 0.1 $Revision: 1.5 $"
   "Version of mtorus-display backend.")
 
 
@@ -90,7 +90,8 @@ The variable's value is replaced by the function result then."
                         ;;(display-message 'no-log message)
                         )
                        (t
-                        (message message)))))
+                        ;;(message message)
+                        ))))
     (notify . ()))
   "Alist of display instances."
   :group 'mtorus-display)
@@ -384,8 +385,8 @@ The variable's value is replaced by the function result then."
                      (buffer-string))))
     (cond ((fboundp 'display-message)
            (display-message 'no-log msgstr))
-          (t
-           (message msgstr)))))
+          (t (let (message-log-max)
+               (message msgstr))))))
 
 
 

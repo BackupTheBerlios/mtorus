@@ -1,5 +1,5 @@
 ;;; mtorus-utils.el --- auxiliary stuff used
-;; $Id: mtorus-utils.el,v 1.4 2004/08/09 01:11:44 hroptatyr Exp $
+;; $Id: mtorus-utils.el,v 1.5 2004/08/10 22:22:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -37,9 +37,83 @@
 
 ;;; Code:
 
+;;; Compatibilty:
+;; This code was written in and for XEmacs but I hope that these lines
+;; make a good and working GNU compatibility
+(if (featurep 'xemacs)
+    (progn ;; XEmacs code:
+      (defun mtorus-message (msg)
+        (display-message 'no-log msg))
+      (defalias 'mtorus-make-extent 'make-extent)
+      (defalias 'mtorus-set-extent-property 'set-extent-property)
+      (defalias 'mtorus-delete-extent 'delete-extent))
+  (progn ;; GNU Emacs code:
+(defun mtorus-message (msg)
+  (message msg))
+(defalias 'mtorus-make-extent 'make-overlay)
+(defalias 'mtorus-set-extent-property 'overlay-put)
+(defalias 'mtorus-delete-extent 'delete-overlay)
+
+(defun plist-to-alist (plist)
+  "Convert property list PLIST into the equivalent association-list form.
+The alist is returned.
+The original plist is not modified."
+  (let (alist)
+    (while plist
+      (setq alist (cons (cons (car plist) (cadr plist)) alist))
+      (setq plist (cddr plist)))
+    (nreverse alist)))
+
+(defun set-alist (alist item value)
+  (let ((alis (symbol-value alist)))
+    (or (boundp alist)
+        (set alist nil))
+    (set alist 
+         (let ((pair (assoc item alis)))
+           (if pair
+               (progn
+                 (setcdr pair value)
+                 alis)
+             (cons
+              (cons item value)
+              alis))))))
+(defun del-alist (item alist)
+  "If there is a pair whose key is ITEM, delete it from ALIST.
+\[tomo's ELIS emulating function]"
+  (if (equal item (car (car alist)))
+      (cdr alist)
+    (let ((pr alist)
+          (r (cdr alist)))
+      (catch 'tag
+        (while (not (null r))
+          (if (equal item (car (car r)))
+              (progn
+                (rplacd pr (cdr r))
+                (throw 'tag alist)))
+          (setq pr r)
+          (setq r (cdr r)))
+        alist))))
+    ))
+
+(cond ((fboundp 'replace-regexp-in-string)
+       (defalias 'mtorus-utils-replace-regexp-in-string 'replace-regexp-in-string))
+      ((fboundp 'replace-in-string)
+       (defun mtorus-utils-replace-regexp-in-string
+         (regexp rep string &optional fixedcase literal subexp start)
+         (replace-in-string string regexp rep literal))))
+
+(cond ((fboundp 'time-less-p)
+       (defalias 'mtorus-utils-time-less-p 'time-less-p))
+      (t (fset 'mtorus-utils-time-less-p
+               (lambda (t1 t2)
+                 (or (< (car t1) (car t2))
+                     (and (= (car t1) (car t2))
+                          (< (nth 1 t1) (nth 1 t2))))))))
+
+;;;
 (defun mtorus-utils-keyword->symbol (key)
   ":keyword -> 'keyword"
-  (intern (replace-regexp-in-string ":" "" (format "%s" key))))
+  (intern (mtorus-utils-replace-regexp-in-string ":" "" (format "%s" key))))
 (defun mtorus-utils-symbol->keyword (sym)
   "'keyword -> :keyword"
   (intern (format ":%s" key)))
@@ -102,35 +176,6 @@ will be in the result list."
 
 
 
-;;; Compatibilty:
-;; This code was written in and for XEmacs but I hope that these lines
-;; make a good and working GNU compatibility
-(if (featurep 'xemacs)
-    (progn ;; XEmacs code:
-      (defun mtorus-message (msg)
-        (display-message 'no-log msg))
-      (defalias 'mtorus-make-extent         'make-extent)
-      (defalias 'mtorus-set-extent-property 'set-extent-property)
-      (defalias 'mtorus-delete-extent       'delete-extent)
-      )
-  (progn ;; GNU Emacs code:
-    (defun mtorus-message (msg)
-      (message msg))
-    (defalias 'mtorus-make-extent 'make-overlay)
-    (defalias 'mtorus-set-extent-property 'overlay-put)
-    (defalias 'mtorus-delete-extent 'delete-overlay)
-
-    (defun plist-to-alist (plist)
-      "Convert property list PLIST into the equivalent association-list form.
-The alist is returned.
-The original plist is not modified."
-      (let (alist)
-        (while plist
-          (setq alist (cons (cons (car plist) (cadr plist)) alist))
-          (setq plist (cddr plist)))
-        (nreverse alist)))
-    )
-  )
 (defun mtorus-set-extent-face (extent face)
   (mtorus-set-extent-property extent 'face face))
 

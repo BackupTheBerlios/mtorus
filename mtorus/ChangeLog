@@ -1,3 +1,14 @@
+2004-08-10  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* all files:
+	- additional compatibility has been established, 
+	mtorus-utils-replace-regexp-in-string looks for a suitable
+	replace-in-string fun
+
+	* mtorus-display.el: (mtorus-display-siblings)
+	- works in GNUmacs, too now
+
+
 2004-08-09  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-topology.el:
