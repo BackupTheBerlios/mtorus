@@ -1,5 +1,5 @@
 ;;; mtorus-state.el --- state functions of the mtorus
-;; $Id: mtorus-state.el,v 1.3 2004/09/10 21:50:38 hroptatyr Exp $
+;; $Id: mtorus-state.el,v 1.4 2004/09/13 07:04:17 ska Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,8 +50,12 @@
   :prefix "mtorus-state-"
   :group 'mtorus)
 
+(defcustom mtorus-state-file "~/.mtorus.dump"
+  "The filename where the state of the mtorus-universe will be dumped."
+  :type 'file
+  :group 'mtorus-state)
 
-(defconst mtorus-state-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-state-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-state backend.
 THIS IS NOT WORKING AT THE MOMENT!")
 
@@ -152,7 +156,8 @@ THIS IS NOT WORKING AT THE MOMENT!")
                               val))
                          (eval (mtorus-utils-symbol-conc
                                 'mtorus-topology-standard nh))))
-            mtorus-topology-standard-neighborhoods))
+            mtorus-topology-standard-neighborhoods)
+      (write-region (point-min) (point-max) mtorus-state-file))
     tempbuf)
 
   ;; now the topology
@@ -170,7 +175,7 @@ THIS IS NOT WORKING AT THE MOMENT!")
   (interactive)
   (with-temp-buffer 
     (erase-buffer)
-    (insert-file-contents "~/.mtorus.dump")
+    (insert-file-contents mtorus-state-file)
     (goto-char (point-min)) (insert "(\n")
     (goto-char (point-max)) (insert "\n)")
     (goto-char (point-min))

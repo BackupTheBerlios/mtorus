@@ -1,3 +1,10 @@
+2004-09-13  Stefan Kamphausen  <mail@skamphausen.de>
+
+	* mtorus-state.el: Added customized filename to save state in.
+
+	* mtorus.el (mtorus-install-suggested-bindings-ska): Fixed my
+	default bindings for CUA users.
+
 2004-09-10  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus.el: install new behaviour
