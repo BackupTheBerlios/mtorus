@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.17 2004/08/09 01:11:44 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.18 2004/08/11 07:17:15 ska Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.1 $Revision: 1.17 $"
+(defconst mtorus-version "2.1 $Revision: 1.18 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -369,18 +369,18 @@ Special care for CUA users is taken."
   ;;; old 1.6, but compatible
   (cond
    ((featurep 'cua) ;; FIXME how to detect?
-    (global-set-key '[(f10)]         'mtorus-next-marker)
-    (global-set-key '[(f9)]          'mtorus-prev-marker)
-    (global-set-key '[(shift f10)]   'mtorus-next-ring)
-    (global-set-key '[(shift f9)]    'mtorus-prev-ring))
+    (global-set-key '[(f10)]         'mtorus-next-element)
+    (global-set-key '[(f9)]          'mtorus-prev-element)
+    (global-set-key '[(shift f10)]   'mtorus-parent-element)
+    (global-set-key '[(shift f9)]    'mtorus-child-element))
    (t
-    (global-set-key '[(shift right)] 'mtorus-next-marker)
-    (global-set-key '[(shift left)]  'mtorus-prev-marker)
-    (global-set-key '[(shift up)]    'mtorus-next-ring)
-    (global-set-key '[(shift down)]  'mtorus-prev-ring)))
+    (global-set-key '[(shift right)] 'mtorus-next-element)
+    (global-set-key '[(shift left)]  'mtorus-prev-element)
+    (global-set-key '[(shift up)]    'mtorus-parent-element)
+    (global-set-key '[(shift down)]  'mtorus-child-element)))
    
   ;; ring handling: f11
-  (global-set-key '[(f11)] 'mtorus-new-ring)
+  (global-set-key '[(f11)] 'mtorus-create-ring)
 ;;   (global-set-key '[(shift f11)]
 ;;     'mtorus-delete-ring)
   ;; doesnt exist atm
@@ -391,7 +391,7 @@ Special care for CUA users is taken."
 
   ;; marker handling: f12
   (global-set-key '[(f12)]
-    'mtorus-new-marker)
+    'mtorus-create-element)
 ;;   (global-set-key '[(shift f12)]
 ;;     'mtorus-delete-current-marker)
   ;; doesnt exist atm
