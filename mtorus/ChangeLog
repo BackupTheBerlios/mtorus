@@ -1,7 +1,24 @@
+2004-08-25  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el: 
+	- add new behaviour (mtorus-enable-ring-induces-buffer)
+	this creates a buffer whenever creating a ring
+	- add new behaviour (mtorus-enable-buffer-induces-marker)
+	this creates a marker whenever creating a buffer
+	- add update-element functions
+	
+	* mtorus-type.el: add another element type 'file
+
+	* mtorus-utils.el: get rid of define-mtorus-element-keyword-type macro
+	use the more generic macro `define-mtorus-keyword-type' which requires
+	another argument PREFIX to install define-PREFIX-NAME keywords.
+
+
 2004-08-20  Stefan Kamphausen  <skamphausen@bn-software.de>
 
 	* mtorus.el (mtorus-install-suggested-bindings-ska): 
 	Update my personal keybindings.
+
 
 2004-08-18  Sebastian Freundt  <hroptatyr@users.berlios.de>
 

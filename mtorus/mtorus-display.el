@@ -1,5 +1,5 @@
 ;;; mtorus-display.el --- display functions of the mtorus
-;; $Id: mtorus-display.el,v 1.7 2004/08/18 21:36:17 hroptatyr Exp $
+;; $Id: mtorus-display.el,v 1.8 2004/08/25 20:18:51 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-display-version "Version: 0.1 $Revision: 1.7 $"
+(defconst mtorus-display-version "Version: 0.1 $Revision: 1.8 $"
   "Version of mtorus-display backend.")
 
 
@@ -126,7 +126,7 @@ The variable's value is replaced by the function result then."
 (defcustom mtorus-displays
   `((message . (lambda (message)
                  (mtorus-display-siblings-2)
-                 (mtorus-notify-popup)
+                 ;;(mtorus-notify-popup)
                  (cond ((featurep 'xemacs)
                         ;;(display-message 'no-log message)
                         )
@@ -136,6 +136,7 @@ The variable's value is replaced by the function result then."
     (notify . ()))
   "Alist of display instances."
   :group 'mtorus-display)
+
 
 (defmacro mtorus-display-message (display &rest display-specs)
   "Displays a message on some action."
@@ -436,6 +437,30 @@ to the cycling commands."
           (t (let (message-log-max)
                (message msgstr))))))
 
+
+
+(defcustom mtorus-display-siblings-separator ","
+  "*Separator between elements."
+  :group 'mtorus-display
+  :type 'string)
+
+(defcustom mtorus-display-siblings-max-neighbourhood 4
+  "*Defines how many elements left and right of the current one are
+displayed when using mtorus-display-siblings-2 display function."
+  :group 'mtorus-display
+  :type 'integer)
+
+(defcustom mtorus-display-siblings-hide-too-distant nil
+  "*Determines what happens with siblings exceeding the
+`mtorus-display-siblings-max-neighborhood'.
+
+Possible values are:
+nil -- don't use hiding at all
+hide -- simply drop too distant siblings
+shorten -- shorten the displayed element string"
+  :group 'mtorus-display)
+
+
 (defun mtorus-display-siblings-2 ()
   "Displays current element's siblings in the modeline."
   (interactive)
@@ -444,14 +469,33 @@ to the cycling commands."
          (curelt mtorus-current-element)
          (parents  (mtorus-topology-standard-parents  mtorus-current-element))
          (siblings (mtorus-topology-standard-siblings mtorus-current-element))
-         (children (mtorus-topology-standard-children mtorus-current-element))
+         ;;(children (mtorus-topology-standard-children mtorus-current-element))
          (siblsort (mtorus-order-by-age siblings))
-         (chilsort (mtorus-order-by-age children))
+         ;;(chilsort (mtorus-order-by-age children))
+
+         ;;; REVISE ME! ... this is hardcoded thus bad :)
+         (curelt-in-siblsort-pos (position curelt siblsort))
+         (too-dist-fun
+          (cond ((eq mtorus-display-siblings-hide-too-distant 'shorten)
+                 (lambda (elem)
+                   (substring (format "%s" elem) 0 3)))
+                ((eq mtorus-display-siblings-hide-too-distant 'hide)
+                 (lambda (elem)
+                   ""))
+                (t #'identity)))
+
          (msgstr (with-temp-buffer
                    (insert (format "%s: " (funcall varfun (car parents))))
                    (mapc #'(lambda (elem)
-                             (let ((felem (funcall varfun elem))
-                                   (pbeg (point)))
+                             (let* ((elem-too-dist-p
+                                     (< mtorus-display-siblings-max-neighbourhood
+                                        (abs (- (position elem siblsort)
+                                                curelt-in-siblsort-pos))))
+                                    (felem (funcall varfun elem))
+                                    (felem (or (and elem-too-dist-p
+                                                    (funcall too-dist-fun felem))
+                                               felem))
+                                    (pbeg (point)))
                                (insert (format "%s" felem))
                                (cond ((equal elem curelt)
                                       (save-excursion
@@ -459,21 +503,8 @@ to the cycling commands."
                                          pbeg
                                          (point)
                                          '(face mtorus-highlight-face)))))
-                               (insert " ")))
+                               (insert mtorus-display-siblings-separator)))
                          siblsort)
-                   ;; (insert " : ")
-;;                    (mapc #'(lambda (elem)
-;;                              (let ((felem (funcall varfun elem))
-;;                                    (pbeg (point)))
-;;                                (insert (format "%s" felem))
-;;                                (cond ((equal elem curelt)
-;;                                       (save-excursion
-;;                                         (set-text-properties
-;;                                          pbeg
-;;                                          (point)
-;;                                          '(face mtorus-highlight-face)))))
-;;                                (insert "  ")))
-;;                          chilsort)
                      (buffer-string))))
     (cond ((fboundp 'display-message)
            (display-message 'no-log msgstr))

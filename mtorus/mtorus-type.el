@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.8 2004/08/18 21:36:17 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.9 2004/08/25 20:18:51 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,104 +53,159 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.8 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.9 $"
   "Version of mtorus-type backend.")
 
-(defcustom mtorus-type-properties-alist
-  '((attachable-to . attachable-to))
-  ""
-  :group 'mtorus-type)
 
 
-(defcustom mtorus-type-methods-alist
-  '((predicate . p)
-    (alive-p . alive-p)
-    (inherit-value . value)
-    (inherit-selection . select))
-  "Alist of method specifiers and corresponding functions to be
-added in the form `mtorus-type-<NAME>-<METHODNAME>'.
+(define-mtorus-keyword-type mtorus-type property
+  :get 
+  (lambda (keyword el-property-ht &optional default)
+    (gethash keyword el-property-ht default))
 
-Entries look like
-  \(method-specifier . method-name\)
+  :put
+  (lambda (keyword el-property-ht value)
+    (puthash keyword value el-property-ht)))
 
-Some of these are essential for MTorus and listed here:
+(define-mtorus-keyword-type mtorus-type method
+  :install
+  (lambda (keyword type function)
+    "Installs mtorus-type-TYPE-KEYWORD."
+    (let ((fun-name
+           (mtorus-utils-symbol-conc
+            'mtorus-type type keyword)))
+      (fset fun-name function)))
+  :install-invoke
+  (lambda (keyword)
+    "Installs mtorus-type-invoke-KEYWORD."
+    (let ((fun-name
+           (mtorus-utils-symbol-conc
+            'mtorus-type-invoke keyword))
+          (func
+           `(lambda (type element)
+              "I'm there?"
+              (let ((fun (mtorus-utils-symbol-conc
+                          'mtorus-type type ',keyword)))
+                (funcall fun element)))))
+      (fset fun-name (eval func))))
+  :install-fallback
+  (lambda (keyword type)
+    "Installs a fallback mtorus-type-TYPE-KEYWORD."
+    (let ((fun-name
+           (mtorus-utils-symbol-conc
+            'mtorus-type type keyword))
+          (func
+           (lambda (element)
+             "This is a fallback only."
+             nil)))
+      (fset fun-name func)))
 
-- pre-creation
-function(s) to be called just before some element of the
-specified type is about to be created
+  :fallback
+  (lambda (element)
+    "This is a fallback only."
+    nil))
 
-- inherit-selection
-function(s) to be passed to element creation.
-This is useful if you want to set selection functions not
-per element but per type.
+(define-mtorus-keyword-type mtorus-type hook
+  :short-name
+  (lambda (keyword)
+    (mtorus-utils-symbol-conc
+     (mtorus-utils-keyword->symbol keyword)
+     'funs))
 
-Methods can be defined as functions whose return values are
-essential.
+  :name
+  (lambda (keyword type)
+    (mtorus-utils-symbol-conc
+     'mtorus-type
+     (mtorus-utils-keyword->symbol type)
+     (mtorus-type-hook-short-name keyword)))
 
-Note that methods just operate on a single element.
-If you intend to work on lists of elements use actions instead.
-\(yet have to be implemented\)"
-  :group 'mtorus-type)
+  :install
+  (lambda (keyword type)
+    (let ((hook-vname (mtorus-type-hook-name keyword type)))
+      (eval
+       `(defvar ,hook-vname nil
+         ,(format "Functions called ... DOCUMENT ME ... %s" keyword)))
+      (set hook-vname nil)))
+
+  :add-fun
+  (lambda (keyword type function)
+    (let ((hook-vname (mtorus-type-hook-name keyword type)))
+      (add-hook hook-vname function)))
+
+  :rem-fun
+  (lambda (keyword type function)
+    (let ((hook-vname (mtorus-type-hook-name keyword type)))
+      (remove-hook hook-vname function)))
+
+  :run-fun
+  (lambda (keyword)
+    `(lambda (type &optional element)
+       "Runs `mtorus-type-TYPE-...-funs"
+       (let ((hook-vname (mtorus-type-hook-name ',keyword type)))
+         (run-hook-with-args hook-vname element)))))
 
 
 
-(defcustom mtorus-type-hooks-alist
-  '((pre-creation . pre-creation-funs)
-    (post-creation . post-creation-funs)
-    (pre-deletion . pre-deletion-funs)
-    (post-deletion . post-deletion-funs)
-    (pre-selection . pre-selection-funs)
-    (post-selection . post-selection-funs)
+
+(define-mtorus-type-property :attachable-to
+  :if-omitted (error "what"))
+
+(define-mtorus-type-method :predicate
+  :alias p)
+(define-mtorus-type-method :alive-p)
+(define-mtorus-type-method :inherit-value
+  :if-omitted mtorus-type-method-fallback)
+(define-mtorus-type-method :inherit-selection)
+
+(define-mtorus-type-hook :pre-creation)
+(define-mtorus-type-hook :post-creation)
+(define-mtorus-type-hook :pre-deletion)
+(define-mtorus-type-hook :post-deletion)
+(define-mtorus-type-hook :pre-selection)
+(define-mtorus-type-hook :post-selection)
 
     ;; hooks run when navigating around
-    (pre-choose . pre-choose-funs)
-    (post-choose . post-choose-funs)
-    (pre-unchoose . pre-unchoose-funs)
-    (post-unchoose . post-unchoose-funs))
-  "Alist of hook specifiers and corresponding hooks to be
-added in the form `mtorus-type-<NAME>-<HOOKNAME>'.
-
-Entries look like
-  \(hook-specifier . hook-name\)
-
-Some of these are essential for MTorus and listed here:
-
-- post-creation
-function(s) to be called after some element of the
-specified type has been created
-
-- pre-deletion
-function(s) to be called just before some element of the
-specified type is about to be deleted
-
-- post-deletion
-function(s) to be called after some element of the
-specified type has been deleted
-
-- pre-selection
-function(s) to be called just before some element of this type
-is selected.
-
-- post-selection
-function(s) to be called after some element of this type
-has been selected.
-
-- pre-deselection
-function(s) to be called just before some element of this type
-is deselected (i.e. another element is selected).
-This hook is actually almost the same as pre-selection but
-it is called with the `old' element in contrast
-
-- post-deselection
-function(s) to be called after some element of this type
-has been deselected (i.e. another element is selected).
-This hook is actually almost the same as post-selection but
-it is called with the `old' element in contrast
+(define-mtorus-type-hook :pre-choose)
+(define-mtorus-type-hook :post-choose)
+(define-mtorus-type-hook :pre-unchoose)
+(define-mtorus-type-hook :post-unchoose)
 
 
-You will realize that exactly the actions in between the pre- and post-
-hooks are the hook actions run by mtorus-element elements."
-  :group 'mtorus-type)
+;; Some of these are essential for MTorus and listed here:
+;; 
+;; - post-creation
+;; function(s) to be called after some element of the
+;; specified type has been created
+;; 
+;; - pre-deletion
+;; function(s) to be called just before some element of the
+;; specified type is about to be deleted
+;; 
+;; - post-deletion
+;; function(s) to be called after some element of the
+;; specified type has been deleted
+;; 
+;; - pre-selection
+;; function(s) to be called just before some element of this type
+;; is selected.
+;; 
+;; - post-selection
+;; function(s) to be called after some element of this type
+;; has been selected.
+;; 
+;; - pre-deselection
+;; function(s) to be called just before some element of this type
+;; is deselected (i.e. another element is selected).
+;; This hook is actually almost the same as pre-selection but
+;; it is called with the `old' element in contrast
+;; 
+;; - post-deselection
+;; function(s) to be called after some element of this type
+;; has been deselected (i.e. another element is selected).
+;; This hook is actually almost the same as post-selection but
+;; it is called with the `old' element in contrast
+ 
+
 
 
 (defvar mtorus-types nil
@@ -162,56 +217,8 @@ Do not fiddle with it.")
   "Obarray holding registered types.")
 
 
-;; I'm currently thinking of a more generic way to define types
-;; type definition should be in general merely memorizing the
-;; type properties
-;; `applications' or code that need some property of a type can
-;; ask the type's variable value then
-;;
-;; this would provide a nice interface to future code
-;;
-;; Example definition of a type then (for example for attachment settings)
-;; (define-mtorus-type ring
-;;   :allow-topology standard  ;; this allows the ring type to be part of the topology standard
-;;   :allow-topology mtorus16  ;; this allows the ring type to be part of the topology mtorus16
-;;   :allow-relation (standard parents buffer) ;; ring can be the parent of a buffer
-;;   :allow-relation (standard parents marker) ;; ring can be the parent of a marker
-;;   :allow-relation (standard parents ring)   ;; ring can be the parent of a ring
-;;   :allow-relation (standard siblings ring)   ;; ring can be the parent of a ring
-;;   ...
-;;   )
 
 
-(defun define-mtorus-type-keyword-action (name keyword action)
-  "Defines an mtorus-type-KEYWORD and some ACTION for it using NAME."
-  (or (boundp 'mtorus-type)
-      (defvar mtorus-type nil
-        "DOCUMENT ME!"))
-  (or (boundp 'mtorus-type-keyword-actions)
-      (defvar mtorus-type-keyword-actions nil
-        "DOCUMENT ME!"))
-  (set-alist 'mtorus-type-keyword-actions name action)
-  (set-alist 'mtorus-type keyword name))
-
-(defun mtorus-type-keyword-action-bouncer (name)
-  "Installs `define-mtorus-type-<KEYWORD-ACTION>' funs by using name."
-  (eval
-   `(defun ,(mtorus-utils-symbol-conc 'define-mtorus-type name)
-     (keyword action)
-     ,(format "Defines an mtorus-type %s-KEYWORD and some ACTION for it."
-              name)
-     (define-mtorus-type-keyword-action ',name keyword action))))
-
-(mtorus-type-keyword-action-bouncer 'property)
-(mtorus-type-keyword-action-bouncer 'method)
-(mtorus-type-keyword-action-bouncer 'hook)
-
-(define-mtorus-type-property :allow-topologies 'dunno)
-(define-mtorus-type-property :allow-relations 'dunno)
-(define-mtorus-type-method :predicate 'dunno)
-(define-mtorus-type-method :inherit-selection 'dunno)
-(define-mtorus-type-method :inherit-value 'dunno)
-(define-mtorus-type-method :alive-p 'dunno)
 
 
 (defmacro define-mtorus-type (name &rest properties)
@@ -220,25 +227,18 @@ NAME is the name of the type and
 PROPERTIES is a list of property names as keywords that describe
 the type in detail.
 
-Valid keywords are taken from the `mtorus-type-hooks-alist'
+Valid keywords are taken from the mtorus-type hook definitions.
 For each of those keywords listed there this macro provides both a
 function definition and a variable symbol that hold values given by
 the according values in PROPERTIES.
 
 For your convenience you can add or remove keywords later.
-See `mtorus-alter-type'."
+See mtorus-alter-type."
   (add-to-list 'mtorus-types name)
   (let ((type-name (mtorus-utils-symbol-conc 'mtorus-type name)))
-    (mapc #'(lambda (handler)
-              (let* ((hname (car handler))
-                     (hhook (cdr handler))
-                     (expanded-type-name
-                      (mtorus-utils-symbol-conc 'mtorus-type name hhook)))
-                (eval
-                 `(defvar ,expanded-type-name nil
-                   ,(format "Functions called ... DOCUMENT ME ... %s" name)))
-                (set expanded-type-name nil)))
-          mtorus-type-hooks-alist)
+    (mapc #'(lambda (keyword)
+              (mtorus-type-hook-install keyword name))
+          (mtorus-type-hook-list))
     (mapc
      #'eval
      `((defvar ,type-name nil
@@ -253,26 +253,34 @@ See `mtorus-alter-type'."
   "Updates an element type."
   (if (member name mtorus-types)
       (progn
-        (mapc #'(lambda (handler)
-                  (let* ((hname (car handler))
-                         (hhook (cdr (assoc hname mtorus-type-hooks-alist)))
-                         (expanded-type-name
-                          (mtorus-utils-symbol-conc 'mtorus-type name hhook))
-                         (fun (cdr handler)))
-                    (and fun (add-hook expanded-type-name fun))))
-              (mtorus-utils-parse-spec properties (mapcar #'car mtorus-type-hooks-alist)))
+        (mapc #'(lambda (keyw+fun)
+                  (let* ((keyw (car keyw+fun))
+                         (fun (cdr keyw+fun)))
+                    (and fun (mtorus-type-hook-add-fun keyw name fun))))
+              (mtorus-utils-parse-spec properties (mtorus-type-hook-list)))
         (mapc #'(lambda (method)
                   (let* ((mname (car method))
-                         (mfunn (cdr (assoc mname mtorus-type-methods-alist)))
+                         (mfunn (mtorus-utils-keyword->symbol mname))
                          (expanded-type-method-name
                           (mtorus-utils-symbol-conc 'mtorus-type name mfunn))
-                         (fun (cdr method)))
-                    (eval
-                     `(defun ,expanded-type-method-name (&optional element &rest args)
-                       ,(format "Function called to determine a(n) %s for an element." mname)
-                       ,(and fun
-                             `(funcall ,fun element))))))
-              (mtorus-utils-parse-spec properties (mapcar #'car mtorus-type-methods-alist))))
+                         (fun (cond ((cdr method))
+                                    (t (mtorus-utils-parse-key-cdr
+                                        :if-omitted
+                                        (cdr (assoc
+                                              (mtorus-utils-symbol->keyword mname)
+                                              mtorus-type))))))
+                         (mname-alias (mtorus-utils-parse-key-cdr
+                                       :alias
+                                       (cdr (assoc
+                                             (mtorus-utils-symbol->keyword mname)
+                                             mtorus-type)))))
+                    (if mname-alias
+                        (mtorus-type-method-install mname-alias name fun)
+                      (mtorus-type-method-install mname name fun))
+                    (mtorus-type-method-install-invoke mname)))
+              (mtorus-utils-parse-spec
+               properties
+               (mtorus-type-method-list))))
     (define-mtorus-type name properties))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
@@ -281,73 +289,53 @@ See `mtorus-alter-type'."
 NAME is the name of the type."
   (setq mtorus-types
         (remove name mtorus-types))
-  (mapc #'(lambda (handler)
-            (let* ((hname (car handler))
-                   (hhook (cdr handler))
-                   (expanded-type-name
-                    (mtorus-utils-symbol-conc 'mtorus-type name hhook))
-                   (expanded-type-fun-name
-                    (mtorus-utils-symbol-conc expanded-type-name 'function)))
+  (mapc #'(lambda (keyw)
+            (let ((hname (mtorus-type-hook-name keyword type)))
               (eval
-               `(makunbound ',expanded-type-name))
-              (eval
-               `(fmakunbound ',expanded-type-fun-name))))
-        mtorus-type-hooks-alist)
+               `(makunbound ',hname))))
+        (mtorus-type-hook-list))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 (defalias 'mtorus-undefine-type 'undefine-mtorus-type)
 
 (defmacro mtorus-unalter-type (name &rest properties)
   "Unregisters type handler functions of an element type."
   (when (member name mtorus-types)
-    (mapc #'(lambda (handler)
-              (let* ((hname (car handler))
-                     (hhook (cdr (assoc hname mtorus-type-hooks-alist)))
-                     (expanded-type-name
-                      (mtorus-utils-symbol-conc 'mtorus-type name hhook))
-                     (fun (cdr handler)))
-                (remove-hook expanded-type-name fun)))
-          (mtorus-utils-parse-spec properties
-                                   (mapcar 'car mtorus-type-hooks-alist))))
+    (mapc #'(lambda (keyw+fun)
+              (let* ((keyw (car keyw+fun))
+                     (fun (cdr keyw+fun)))
+                (mtorus-type-hook-rem-fun keyw fun)))
+          ;;; just parse for hook properties
+          (mtorus-utils-parse-spec
+           properties
+           (mtorus-type-hook-list))))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
-
-;;; REVISE ME!!!
-;; here we need something that allows other `backend modules' to
-;; add something like those spec pairs in e.g. mtorus-type-methods-alist
-;; and install them by those bouncer functions (just like initialization does)
-;; A revise for mtorus-alter-type is needed then!
-;; We must not mapc on the methods/hooks-alist but on the actual spec keywords
-;; that occur.
-
-;;(mtorus-utils-add-spec
 
 
 
 (defmacro mtorus-type-run-methods-bouncer ()
   "Installs some useful mtorus-type-METHOD funs."
   (mapc #'(lambda (method)
-            (let ((mname (car method))
-                  (mfunn (cdr method)))
+            (let ((meth-vname (mtorus-utils-keyword->symbol method)))
               (eval
-               `(defun ,(mtorus-utils-symbol-conc 'mtorus-type mname)
+               `(defun ,(mtorus-utils-symbol-conc 'mtorus-type meth-vname)
                  (type &optional element)
-                 ,(format "Runs mtorus-type-TYPE-%s" mfunn)
-                 (let ((fun (intern (format "mtorus-type-%s-%s"
-                                            type ',mfunn))))
+                 ,(format "Runs mtorus-type-TYPE-%s" meth-vname)
+                 (let ((fun (mtorus-utils-symbol-conc
+                             'mtorus-type
+                             type ',meth-vname)))
                    (funcall fun element))))))
-        mtorus-type-methods-alist)
+        (mtorus-type-method-list))
   t)
 (defmacro mtorus-type-run-hooks-bouncer ()
   "Installs some useful mtorus-type-run-HOOKS funs."
   (mapc #'(lambda (hook)
-            (eval
-             `(defun ,(mtorus-utils-symbol-conc 'mtorus-type-run hook)
-               (type &optional element)
-               ,(format "Runs mtorus-type-TYPE-%s-function" hook)
-               (let ((fun (intern (format "mtorus-type-%s-%s"
-                                          type ',hook))))
-                 (run-hook-with-args fun element)))))
-        (mapcar 'cdr mtorus-type-hooks-alist))
+            (let ((hook-rname (mtorus-utils-symbol-conc
+                               'mtorus-type-run
+                               (mtorus-type-hook-short-name hook)))
+                  (hook-run-fun (mtorus-type-hook-run-fun hook)))
+              (fset hook-rname hook-run-fun)))
+        (mtorus-type-hook-list))
   t)
 
 (mtorus-type-run-methods-bouncer)
@@ -424,7 +412,8 @@ Optional TYPE-FILTER limits this set to only certain types."
     ring
     :predicate
     (lambda (element)
-      (or (eq (mtorus-element-get-type element) 'ring)
+      "Determines if ELEMENT is a valid ring."
+      (or (eq (mtorus-element-get-property 'type element) 'ring)
           (cond ((sequencep element)
                  (every (lambda (sub) (mtorus-element-p sub)) element))
                 (t nil))))
@@ -456,7 +445,8 @@ Optional TYPE-FILTER limits this set to only certain types."
     buffer
     :predicate
     (lambda (element)
-      (bufferp (mtorus-element-get-value element)))
+      "Determines if ELEMENT is a valid buffer."
+      (bufferp (mtorus-element-get-property 'value element)))
 
     :inherit-value
     (lambda (element)
@@ -464,11 +454,11 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :inherit-selection
     (lambda (element)
-      (switch-to-buffer (mtorus-element-get-value element)))
+      (switch-to-buffer (mtorus-element-get-property 'value element)))
 
     :alive-p
     (lambda (element)
-      (buffer-live-p (mtorus-element-get-value element)))
+      (buffer-live-p (mtorus-element-get-property 'value element)))
     
     :post-creation
     (lambda (element)
@@ -493,7 +483,8 @@ Optional TYPE-FILTER limits this set to only certain types."
     marker
     :predicate
     (lambda (element)
-      (markerp (mtorus-element-get-value element)))
+      "Determines if ELEMENT is a valid marker."
+      (markerp (mtorus-element-get-property 'value element)))
 
     :inherit-value
     (lambda (element)
@@ -501,14 +492,14 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :inherit-selection
     (lambda (element)
-      (let ((buf (marker-buffer (mtorus-element-get-value element))))
+      (let ((buf (marker-buffer (mtorus-element-get-property 'value element))))
         (with-current-buffer buf
-          (goto-char (marker-position (mtorus-element-get-value element))))
+          (goto-char (marker-position (mtorus-element-get-property 'value element))))
         (switch-to-buffer buf)))
 
     :alive-p
     (lambda (element)
-      (buffer-live-p (marker-buffer (mtorus-element-get-value element))))
+      (buffer-live-p (marker-buffer (mtorus-element-get-property 'value element))))
 
     :post-creation
     (lambda (element)
@@ -529,8 +520,41 @@ Optional TYPE-FILTER limits this set to only certain types."
         ;;(mtorus-element-detach element)
         )))
 
+  (define-mtorus-type
+    file
+    :predicate
+    (lambda (element)
+      "Determines if ELEMENT is a valid file."
+      (file-readable-p (mtorus-element-get-value element)))
 
-  ;; furthermore there should be some usre customization here,
+    :inherit-value
+    (lambda (element)
+      (read-file-name "File Name: "))
+
+    :inherit-selection
+    (lambda (element)
+      (find-file (mtorus-element-get-value element)))
+
+    :alive-p
+    (lambda (element)
+      (file-readable-p (mtorus-element-get-value element)))
+
+    :post-creation
+    (lambda (element)
+      (mtorus-fake-attach-element-to-children-of-ring
+       element (mtorus-fake-attach-get-current-ring-interactive)
+       #'(lambda (elements)
+           (append (mtorus-type-filter 'buffer elements)
+                   (mtorus-type-filter 'marker elements))))
+      (mtorus-element-set-current element))
+
+    :pre-selection
+    (lambda (element)
+      (unless (mtorus-type-file-alive-p element)
+        )))
+
+
+  ;; furthermore there should be some user customization here,
   ;; im talking about mtorus-type-auto-register-at-topology-p or something
   ;; see ToDo
   )

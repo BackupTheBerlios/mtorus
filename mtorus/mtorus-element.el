@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.11 2004/08/18 21:36:17 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.12 2004/08/25 20:18:51 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.2 $Revision: 1.11 $"
+(defconst mtorus-element-version "Version: 0.3 $Revision: 1.12 $"
   "Version of mtorus-element backend.")
 
 
@@ -187,7 +187,7 @@ See also: `mtorus-element-generate-cookie-function'"
 
 ;;; predefined keyword types
 
-(define-mtorus-element-keyword-type property
+(define-mtorus-keyword-type mtorus-element property
   :get 
   (lambda (keyword el-property-ht &optional default)
     (gethash keyword el-property-ht default))
@@ -196,8 +196,8 @@ See also: `mtorus-element-generate-cookie-function'"
   (lambda (keyword el-property-ht value)
     (puthash keyword value el-property-ht)))
 
-(define-mtorus-element-keyword-type method)
-(define-mtorus-element-keyword-type hook)
+(define-mtorus-keyword-type mtorus-element method)
+(define-mtorus-keyword-type mtorus-element hook)
 
 
 (define-mtorus-element-property :type
@@ -240,7 +240,7 @@ See also: `mtorus-element-generate-cookie-function'"
   "Checks whether ELEMENT is an mtorus element and
 returns PROPERTY."
   (and (mtorus-element-p element)
-       (mtorus-element-keyword-type-get
+       (mtorus-element-property-get
         (mtorus-utils-keyword->symbol property)
         (gethash element (eval mtorus-elements-hash-table))
         default)))
@@ -248,7 +248,7 @@ returns PROPERTY."
   "Checks whether ELEMENT is an mtorus element and
 returns PROPERTY."
   (and (mtorus-element-p element)
-       (mtorus-element-keyword-type-put
+       (mtorus-element-property-put
         (mtorus-utils-keyword->symbol property)
         (gethash element (eval mtorus-elements-hash-table))
         value)))
@@ -280,13 +280,6 @@ puts the %s property to VALUE." prop)
 (mtorus-element-get-property-bouncer)
 
 
-
-
-;;   ;;; ugly fun to make the value a/v
-;; (defun mtorus-element-get-value (element &optional default)
-;;   "Just a wrapper fun."
-;;   (and (boundp element)
-;;        (eval element)))
 
 
 
@@ -321,19 +314,27 @@ Optional keywords are:
 
   ;; look how an el-prop-ht looks like
   (let ((el-prop-ht (make-hash-table :test 'equal)))
-    (mapc #'(lambda (keyword+specs)
-              (let* ((keyword (car keyword+specs))
-                     (type (mtorus-element-keyword-get-type keyword))
-                     (kw-spec (cdr keyword+specs))
-                     (value (or (mtorus-utils-parse-key-cdr keyword element-specs)
-                                (let ((if-om-fun (mtorus-utils-parse-key-cdr :if-omitted kw-spec)))
-                                  (cond ((listp if-om-fun)
-                                         (eval (mtorus-utils-keyword-type-replace-keyword if-om-fun el-prop-ht)))
-                                        (t if-om-fun))))))
-                (mtorus-element-keyword-type-put
-                 (mtorus-utils-keyword->symbol keyword)
-                 el-prop-ht value)))
-          mtorus-element)
+    (mapc
+     #'(lambda (keyword+specs)
+         (let* ((keyword (car keyword+specs))
+                (type (mtorus-keyword-get-type 'mtorus-element keyword))
+                (kw-spec (cdr keyword+specs))
+                (value
+                 (or
+                  (mtorus-utils-parse-key-cdr keyword element-specs)
+                  (let ((if-om-fun
+                         (mtorus-utils-parse-key-cdr :if-omitted kw-spec)))
+                    (cond ((listp if-om-fun)
+                           (eval
+                            (mtorus-utils-keyword-type-replace-keyword
+                             'mtorus-element
+                             'property-get
+                             if-om-fun el-prop-ht)))
+                          (t if-om-fun))))))
+           (mtorus-element-property-put
+            (mtorus-utils-keyword->symbol keyword)
+            el-prop-ht value)))
+     mtorus-element)
     el-prop-ht))
 ;;(make-mtorus-element :type 'ring)
 
@@ -349,8 +350,8 @@ Created elements are stored in `mtorus-elements' for reference."
                       element-property-hashtable)
 
   (let* ((el-prop-ht element-property-hashtable)
-         (type (mtorus-element-keyword-type-get-type el-prop-ht))
-         (symbol (mtorus-element-keyword-type-get-symbol el-prop-ht)))
+         (type (mtorus-element-property-get 'type el-prop-ht))
+         (symbol (mtorus-element-property-get 'symbol el-prop-ht)))
     (mtorus-type-run-pre-creation-funs type symbol)
 
     ;; registration to not lose the element 
@@ -365,6 +366,8 @@ Created elements are stored in `mtorus-elements' for reference."
 (defalias 'mtorus-element-create 'define-mtorus-element)
 
 
+
+
 ;;;
 ;;; Element handlers
 ;;;
@@ -372,19 +375,20 @@ Created elements are stored in `mtorus-elements' for reference."
 (defun mtorus-element-register (element element-properties)
   "Registers ELEMENT at the elements container
 identified by `mtorus-elements-hash-table'."
-  (let ((type (mtorus-element-keyword-type-get-type
+  (let ((type (mtorus-element-property-get 'type
                element-properties 'mtorus-element)))
     (and type
          (puthash element element-properties
                   (eval mtorus-elements-hash-table)))))
-(defun mtorus-element-unregister (element)
+(defun mtorus-element-unregister (element &optional force)
   "Unregisters ELEMENT completely.
 ELEMENT is detached from any relation in any known topology."
-  (and (mtorus-element-valid-p element)
-       (mtorus-element-detach element)
-       (remhash element (eval mtorus-elements-hash-table))))
+  (when (or (and (mtorus-element-valid-p element)
+                 (mtorus-element-detach element))
+            force)
+    (remhash element (eval mtorus-elements-hash-table))))
 
-(defun mtorus-element-delete (element)
+(defun mtorus-element-delete (element &optional force)
   "Deletes ELEMENT.
 This is _hard deletion_, element gets unregistered at
 `mtorus-elements-hash-table' and unbound.
@@ -394,11 +398,12 @@ If you wish to just unregister the element, see
 Attention, deletion or unregistration of elements does
 not (yet?) update rings that posess this element."
   (run-hook-with-args 'mtorus-element-pre-deletion-hook element)
-  (and (mtorus-element-p element)
-       (mtorus-element-get-property 'deletable element)
-       (mtorus-element-unregister element)
-  (run-hook-with-args 'mtorus-element-post-deletion-hook element)
-  element))
+  (when (or (and (mtorus-element-p element)
+                 (mtorus-element-get-property 'deletable element))
+            force)
+    (mtorus-element-unregister element force)
+    (run-hook-with-args 'mtorus-element-post-deletion-hook element)
+    element))
 
 (defun mtorus-element-detach (element)
   "Detaches ELEMENT completely from any relation."
@@ -449,14 +454,18 @@ not (yet?) update rings that posess this element."
 
 (defmacro mtorus-element-type-methods-bouncer ()
   "Installs some useful mtorus-element-METHOD funs."
-  (mapc #'(lambda (method)
-            (eval
-             `(defun ,(mtorus-utils-symbol-conc 'mtorus-element method)
-               (element)
-               ,(format "Runs mtorus-type-%s under the correct type of ELEMENT." method)
-               (let ((fun (mtorus-utils-symbol-conc 'mtorus-type ',method)))
-                 (funcall fun (mtorus-element-get-property 'type element) element)))))
-        (mapcar #'car mtorus-type-methods-alist))
+  (mapc
+   #'(lambda (method)
+       (let ((method (mtorus-utils-keyword->symbol method)))
+         (eval
+          `(defun ,(mtorus-utils-symbol-conc 'mtorus-element method)
+            (element)
+            ,(format "Runs mtorus-type-%s under the correct type of ELEMENT."
+                     method)
+            (let ((fun (mtorus-utils-symbol-conc 'mtorus-type-invoke ',method)))
+              (funcall fun
+                       (mtorus-element-get-property 'type element) element))))))
+   (mtorus-type-method-list))
   t)
 
 (mtorus-element-type-methods-bouncer)
@@ -519,10 +528,11 @@ This runs some hooks at the moment."
 (defun mtorus-elements ()
   "Returns a list of element symbols."
   (let (elems)
-    (maphash #'(lambda (key val)
-                 (setq elems
-                       (cons key elems)))
-             (eval mtorus-elements-hash-table))
+    (maphash
+     #'(lambda (key val)
+         (setq elems
+               (cons key elems)))
+     (eval mtorus-elements-hash-table))
     elems))
 ;; (mtorus-elements)
 
@@ -530,11 +540,12 @@ This runs some hooks at the moment."
   "Makes a predicate function."
   (cond ((or (eq type-filter 'all)
              (null type-filter))
-         (lambda (element type)
+         (lambda (elem elem-specs)
            t))
         ((symbolp type-filter)
-         `(lambda (element type)
-            (eq type ',type-filter)))
+         `(lambda (elem elem-specs)
+            (equal (mtorus-element-property-get 'type elem-specs)
+                   ',type-filter)))
         ((functionp type-filter)
          type-filter)
         ((eq (car type-filter) 'lambda)
@@ -558,29 +569,35 @@ Optional TYPE-FILTER limits this set to only certain types."
   (let ((filt (mtorus-element-type-filter->fun-preds
                type-filter))
         (element-obarray (vector)))
-    (maphash #'(lambda (key val)
-                 (and (some #'(lambda (pred-fun)
-                                (funcall pred-fun key val))
-                            filt)
-                      (setq element-obarray
-                            (vconcat element-obarray (vector key)))))
-           mtorus-elements)
+    (maphash
+     #'(lambda (elem elem-specs)
+         (and (some
+               #'(lambda (pred-fun)
+                   (funcall pred-fun elem elem-specs))
+               filt)
+              (setq element-obarray
+                    (vconcat element-obarray (vector elem)))))
+     (eval mtorus-elements-hash-table))
     element-obarray))
 ;;(mtorus-element-obarray '(marker buffer))
+;;(mtorus-element-obarray #'(lambda (element type) (unless (eq element 'mtorus-universe) t)))
 
 (defun mtorus-element-obarray-names (obarr &rest format)
   "Makes an obarray from OBARRAY returning the names of the elements.
 Optional FORMAT determines the result."
-  (mapcar #'(lambda (element)
-              (let ((formspec (eval `(format ,@format))))
-                (cons formspec element)))
-          obarr))
+  (mapcar
+   #'(lambda (element)
+       (let ((formspec (eval `(format ,@format))))
+         (cons formspec element)))
+   obarr))
 
 (defun mtorus-element-obarray+names (&optional type-filter)
   "Makes an obarray from `mtorus-elements' returning the names of the elements.
 Optional TYPE-FILTER limits this set to only certain types."
   (let ((eobarr (mtorus-element-obarray type-filter)))
-    (mtorus-element-obarray-names eobarr "%s" '(mtorus-element-get-name element))))
+    (mtorus-element-obarray-names
+     eobarr "%s"
+     '(mtorus-element-get-property 'name element))))
 ;;(mtorus-element-obarray+names 'all)
 ;;(mtorus-element-obarray+names #'(lambda (element type) (unless (eq element 'mtorus-universe) t)))
 

@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.22 2004/08/20 10:07:28 ska Exp $
+;; $Id: mtorus.el,v 1.23 2004/08/25 20:18:51 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.1 $Revision: 1.22 $"
+(defconst mtorus-version "2.2 $Revision: 1.23 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -316,10 +316,17 @@ This is an ALPHA feature."
 We will define later what this actually means."
   :group 'mtorus)
 
-;;; currently not used
-(defcustom mtorus-init-ring-emtpy nil
-  "*Whether to create a new ring with a marker at point.
-You will see this not in action atm."
+;;; variable wrappers for dynamic induce behaviour
+(defcustom mtorus-ring-induces-buffer nil
+  "*Whether to create a new ring with a buffer in it."
+  :type 'boolean
+  :group 'mtorus)
+(defcustom mtorus-ring-induces-marker nil
+  "*Whether to create a new ring with a marker at point."
+  :type 'boolean
+  :group 'mtorus)
+(defcustom mtorus-buffer-induces-marker nil
+  "*Whether to create a new buffer with a marker at point."
   :type 'boolean
   :group 'mtorus)
 
@@ -350,6 +357,15 @@ This is an ALPHA feature."
 (defun mtorus-install-default-behaviour ()
   "Installs the default behaviour of how things in mtorus work."
   (interactive)
+  (if mtorus-ring-induces-buffer
+      (mtorus-enable-ring-induces-buffer)
+    (mtorus-disable-ring-induces-buffer))
+  (if mtorus-ring-induces-marker
+      (mtorus-enable-ring-induces-marker)
+    (mtorus-disable-ring-induces-marker))
+  (if mtorus-buffer-induces-marker
+      (mtorus-enable-buffer-induces-marker)
+    (mtorus-disable-buffer-induces-marker))
   )
 
 ;; additional behaviour installers
@@ -419,6 +435,9 @@ Special care for CUA users is taken."
   (global-set-key '[(control kp-0)] 'mtorus-create-element)
   (global-set-key '[(control kp-decimal)] 'mtorus-delete-element)
 
+  ;; auto selection
+  (mtorus-disable-select-follows-choose)
+
   (message "hroptatyr bindings installed"))
 
 
@@ -440,6 +459,57 @@ Special care for CUA users is taken."
   (remove-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
   (remove-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
   (message "select follows choose"))
+
+
+;; creating a ring, also creates a buffer
+(defun mtorus-behaviour-ring-induces-buffer (element)
+  ""
+  (and (mtorus-type-ring-p element)
+       (mtorus-create-element 'buffer (mtorus-default-name 'buffer))))
+(defun mtorus-enable-ring-induces-buffer ()
+  ""
+  (interactive)
+  (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-buffer)
+  (message "ring induces buffer"))
+(defun mtorus-disable-ring-induces-buffer ()
+  ""
+  (interactive)
+  (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-buffer)
+  (message "ring induces buffer"))
+
+
+;; creating a ring, also creates a marker
+(defun mtorus-behaviour-ring-induces-marker (element)
+  ""
+  (and (mtorus-type-ring-p element)
+       (mtorus-create-element 'marker (mtorus-default-name 'marker))))
+(defun mtorus-enable-ring-induces-marker ()
+  ""
+  (interactive)
+  (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-marker)
+  (message "ring induces marker"))
+(defun mtorus-disable-ring-induces-marker ()
+  ""
+  (interactive)
+  (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-marker)
+  (message "ring induces marker"))
+
+
+;; creating a buffer, also creates a marker
+(defun mtorus-behaviour-buffer-induces-marker (element)
+  ""
+  (and (mtorus-type-buffer-p element)
+       (mtorus-create-element 'marker (mtorus-default-name 'marker))))
+(defun mtorus-enable-buffer-induces-marker ()
+  ""
+  (interactive)
+  (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-buffer-induces-marker)
+  (message "buffer induces marker"))
+(defun mtorus-disable-buffer-induces-marker ()
+  ""
+  (interactive)
+  (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-buffer-induces-marker)
+  (message "buffer induces marker"))
 
 
 
@@ -608,12 +678,12 @@ The auto-rings will be set up by running
 
 (defun mtorus-run-per-type-pre-hooks (element)
   "Runs hooks in `mtorus-type-run-pre-choose-funs' with ELEMENT."
-  (let ((type (mtorus-element-get-type element)))
+  (let ((type (mtorus-element-get-property 'type element)))
     (and type
          (mtorus-type-run-pre-choose-funs type element))))
 (defun mtorus-run-per-type-post-hooks (element)
   "Runs hooks in `mtorus-type-run-post-choose-funs' with ELEMENT."
-  (let ((type (mtorus-element-get-type element)))
+  (let ((type (mtorus-element-get-property 'type element)))
     (and type
          (mtorus-type-run-post-choose-funs type element))))
 (defun mtorus-install-per-type-hooks ()
@@ -633,9 +703,10 @@ The auto-rings will be set up by running
 (defun mtorus-clear-elements ()
   "Clears (and unregisters) all elements."
   (interactive)
-  (maphash #'(lambda (key val)
-               (mtorus-element-delete key))
-           mtorus-elements))
+  (maphash
+   #'(lambda (elem elem-specs)
+       (mtorus-element-delete elem t))
+   (eval mtorus-elements-hash-table)))
 
    ;;; probably be moved to mtorus-topology.el
 (defun mtorus-clear-topologies ()
@@ -656,7 +727,8 @@ The auto-rings will be set up by running
 (defcustom mtorus-creation-default-names
   '((ring . "")
     (buffer . #'buffer-name)
-    (marker . (format "%s#%s" (buffer-name) (point))))
+    (marker . (format "%s#%s" (buffer-name) (point)))
+    (file . ""))
   "*Names used as defaults when creating elements.
 This is an alist of \(type . default-name-function-or-string\)."
   :group 'mtorus)
@@ -677,7 +749,7 @@ This is an alist of \(type . default-name-function-or-string\)."
                  (eval str-or-fun))
                 ((stringp str-or-fun)
                  str-or-fun))))
-    (format "%s" result)))
+    (format "%s" (or result ""))))
 
 
 
@@ -783,6 +855,35 @@ elements to only those of a certain type."
   element)
 
 
+;; these are just wrapper functions to mtorus-delete-element
+(defun mtorus-delete-bouncer (types)
+  "Creates `mtorus-delete-<TYPE>' functions."
+  (interactive)
+  (mapc
+   #'(lambda (type)
+       (mapc
+        #'eval
+        `((defun ,(mtorus-utils-symbol-conc 'mtorus-delete type)
+            (name)
+            ,(format
+              "Delete an mtorus element of type `%s' with NAME (asked from user)."
+              type)
+            (interactive
+             (list (let* ((table (mtorus-element-obarray+names type))
+                          (curel (car (rassoc mtorus-current-element table))))
+                     (cdr
+                      (assoc (completing-read
+                              (format "Element (%s): " curel)
+                              table nil t nil 'mtorus-read-string-history curel)
+                             table)))))
+            (mtorus-delete-element name)))))
+   types))
+(mtorus-delete-bouncer mtorus-types)
+
+
+
+
+
 (defun mtorus-rename-element (element newname &optional type-filter)
   "Rename an mtorus element."
   (interactive
@@ -797,18 +898,20 @@ elements to only those of a certain type."
           (newname
            (read-string
             "New Name: "
-            (mtorus-element-get-name element) 'mtorus-read-string-history)))
+            (mtorus-element-get-property 'name element)
+            'mtorus-read-string-history)))
      (list element newname)))
 
   ;;; hooks??
-  (mtorus-element-put-name element newname))
+  (mtorus-element-put-property 'name element newname))
 
 (defun mtorus-rename-current-element (newname &optional type-filter)
   "Rename the current mtorus element."
   (interactive
    (list (read-string
           "New Name: "
-          (mtorus-element-get-name mtorus-current-element) 'mtorus-read-string-history)))
+          (mtorus-element-get-property 'name mtorus-current-element)
+          'mtorus-read-string-history)))
 
   ;;; hooks??
   (mtorus-rename-element mtorus-current-element newname))
@@ -838,7 +941,7 @@ elements to only those of a certain type."
                        (mtorus-element-obarray-names
                         eobarr
                         "%s (%s)"
-                        '(mtorus-element-get-name element) 'element))
+                        '(mtorus-element-get-property 'name element) 'element))
                       (curel (car (rassoc mtorus-current-element table))))
                  (cdr
                   (assoc (completing-read
@@ -909,7 +1012,7 @@ elements to only those of a certain type."
                        (mtorus-element-obarray-names
                         eobarr
                         "%s (%s)"
-                        '(mtorus-element-get-name element) 'element))
+                        '(mtorus-element-get-property 'name element) 'element))
                       (curel (car (rassoc mtorus-current-element table))))
                  (cdr
                   (assoc (completing-read
@@ -940,63 +1043,27 @@ elements to only those of a certain type."
 
 
 
+(defun mtorus-update-element (element)
+  "Update ELEMENT with value from mtorus-element-inherit-value."
+  (interactive
+   (let* ((table (mtorus-element-obarray+names 'all))
+          (curel (car (rassoc mtorus-current-element table)))
+          (element
+           (cdr
+            (assoc (completing-read
+                    (format "Element (%s): " curel)
+                    table nil t nil 'mtorus-read-string-history curel)
+                   table))))
+     (list element)))
+  (let ((newval (mtorus-element-inherit-value element)))
+    (mtorus-element-put-value element newval)))
+
+(defun mtorus-update-current-element ()
+  "Update the current element with value from mtorus-element-inherit-value."
+  (interactive)
+  (mtorus-update-element mtorus-current-element))
 
 
-
-
-;; old 1.6 
-;; ;; Marker
-;; (defun mtorus-modify-torus (ring-name func)
-;;   (if (not (mtorus-special-ringp ring-name))
-;;       (let ((new-ring
-;;              (funcall func (copy-list
-;;                             (mtorus-ring-by-name ring-name)))))
-;;         (setq mtorus-torus
-;;               (mapcar #'(lambda (item)
-;;                           (if (string= (first item)
-;;                                        ring-name)
-;;                               new-ring
-;;                             item))
-;;                       mtorus-torus))
-;;         )
-;;     (mtorus-message "can't edit special lists")))
-;; 
-;;; CONVERT ME!!
-;; (defun mtorus-rename-current-ring (&optional ring-name new-name)
-;;   "Rename RING-NAME to NEW-NAME asking if omitted."
-;;   (interactive)
-;;   (let* ((rname (or ring-name (mtorus-ask-ring)))
-;;         (nname
-;;          (or new-name
-;;              (read-string (format "rename \"%s\" to: " rname)))))
-;;     (mtorus-modify-torus
-;;      ring-name #'(lambda (ring)
-;;                    (list nname (second ring))))))
-;; 
-;; (defun mtorus-new-marker ()
-;;   "Create a new marker at the current position.
-;; It is added to the current ring and made the current entry in that
-;; ring."
-;;   (interactive)
-;;   (mtorus-modify-torus
-;;    (mtorus-current-ring-name)
-;;     #'(lambda (ring)
-;;          (list (first ring)
-;;                (cons (point-marker)
-;;                      (second ring))))))
-;; 
-;; 
-;; 
-;; (defun mtorus-update-current-marker ()
-;;   "Make the current marker point to the current position."
-;;   (interactive)
-;;   (mtorus-modify-torus
-;;    (mtorus-current-ring-name)
-;;     #'(lambda (ring)
-;;         (set-marker (first (second ring))
-;;                     (point))
-;;         ring)))
-;; 
 
 
 
