@@ -1,3 +1,20 @@
+2004-09-10  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el: install new behaviour
+	`mtorus-en/disable-select-resurrects-dead'
+
+	* mtorus-type.el: add method resurrection of dead
+	elements
+
+	* mtorus-element.el: add resurrection-data to element's
+	property hash-table
+
+	* mtorus-state.el: make reloading saved torus work
+	- state-load uses facilities provided by new resurrection
+	(use M-x mtorus-enable-select-resurrects-dead RET to
+	make it work)
+
+
 2004-09-09  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-state.el: state loading works now

@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.10 2004/09/04 02:37:32 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.11 2004/09/10 21:50:38 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,7 +53,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.10 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.11 $"
   "Version of mtorus-type backend.")
 
 
@@ -95,6 +95,7 @@ and mtorus-element-KEYWORD."
                 (let ((fun (mtorus-utils-symbol-conc
                             'mtorus-type type ',kw-symb)))
                   (and (fboundp fun)
+                       (symbol-function fun)
                        (funcall fun element)))))
             (elem-func
              `(lambda (element)
@@ -187,10 +188,8 @@ and mtorus-element-KEYWORD."
 (define-mtorus-type-method :inherit-value
   :if-omitted mtorus-type-method-fallback)
 (define-mtorus-type-method :inherit-selection)
-;; (define-mtorus-type-method :convert-value
-;;   :if-omitted mtorus-type-method-fallback)
-;; (define-mtorus-type-method :conversion
-;;   :if-omitted mtorus-type-method-fallback)
+(define-mtorus-type-method :inherit-resurrection-data)
+(define-mtorus-type-method :resurrect)
 
 (define-mtorus-type-hook :pre-creation)
 (define-mtorus-type-hook :post-creation)
@@ -509,6 +508,28 @@ Optional TYPE-FILTER limits this set to only certain types."
     (lambda (element)
       (switch-to-buffer (mtorus-element-get-property 'value element)))
 
+    :inherit-resurrection-data
+    (lambda (element)
+      (let ((val (mtorus-element-get-property 'value element)))
+        `(:buffer-name ,(buffer-name val)
+          :buffer-file-name ,(buffer-file-name val))))
+    :resurrect
+    (lambda (element)
+      "Resurrects ELEMENT."
+      (let ((res-data
+             (mtorus-element-get-property 'resurrection-data element)))
+        (and
+         res-data
+         (let ((buffer-name
+                (mtorus-utils-plist-get res-data ':buffer-name))
+               (buffer-filename  ;; buffer-file-name is already bound
+                (mtorus-utils-plist-get res-data ':buffer-file-name)))
+           (mtorus-element-put-property
+            'value element
+            (cond ((get-buffer buffer-name))
+                  ((file-readable-p buffer-filename)
+                   (find-file buffer-filename))))))))
+
     :alive-p
     (lambda (element)
       (buffer-live-p (mtorus-element-get-property 'value element)))
@@ -545,14 +566,48 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :inherit-selection
     (lambda (element)
-      (let ((buf (marker-buffer (mtorus-element-get-property 'value element))))
+      (let ((buf (marker-buffer
+                  (mtorus-element-get-property 'value element))))
         (with-current-buffer buf
-          (goto-char (marker-position (mtorus-element-get-property 'value element))))
+          (goto-char (marker-position
+                      (mtorus-element-get-property 'value element))))
         (switch-to-buffer buf)))
 
     :alive-p
     (lambda (element)
-      (buffer-live-p (marker-buffer (mtorus-element-get-property 'value element))))
+      (buffer-live-p
+       (marker-buffer (mtorus-element-get-property 'value element))))
+
+    :inherit-resurrection-data
+    (lambda (element)
+      (let* ((val (mtorus-element-get-property 'value element))
+             (buf (marker-buffer val)))
+        `(:buffer-name ,(buffer-name buf)
+          :buffer-file-name ,(buffer-file-name buf)
+          :buffer-point ,(marker-position val))))
+    :resurrect
+    (lambda (element)
+      "Resurrects ELEMENT."
+      (let ((res-data
+             (mtorus-element-get-property 'resurrection-data element)))
+        (and
+         res-data
+         (let ((buffer-name
+                (mtorus-utils-plist-get res-data ':buffer-name))
+               (buffer-filename ;; buffer-file-name is already bound
+                (mtorus-utils-plist-get res-data ':buffer-file-name))
+               (buffer-point
+                (mtorus-utils-plist-get res-data ':buffer-point)))
+           (mtorus-element-put-property
+            'value element
+            (cond ((get-buffer buffer-name)
+                   (set-marker (make-marker)
+                               buffer-point
+                               buffer-name))
+                  ((file-readable-p buffer-filename)
+                   (set-marker (make-marker)
+                               buffer-point
+                               (find-file buffer-filename)))))))))
 
     :post-creation
     (lambda (element)

@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.14 2004/09/09 23:18:22 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.15 2004/09/10 21:50:38 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.3 $Revision: 1.14 $"
+(defconst mtorus-element-version "Version: 0.3 $Revision: 1.15 $"
   "Version of mtorus-element backend.")
 
 
@@ -114,7 +114,6 @@ At least for every bound element that is in use there's a hash-key.")
   "Holds the cookie of the current element.")
 (defvar mtorus-current-state nil
   "Holds the complete current state of the mtorus.")
-
 
 
 
@@ -212,6 +211,7 @@ See also: `mtorus-element-generate-cookie-function'"
 (define-mtorus-element-property :name
   :if-omitted (format "MTorus %s: %s" :type :symbol))
 (define-mtorus-element-property :value)
+(define-mtorus-element-property :resurrection-data)
 (define-mtorus-element-property :ctime
   :if-omitted (current-time))
 (define-mtorus-element-property :atime
