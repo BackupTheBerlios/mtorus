@@ -1,0 +1,230 @@
+#title MTorus -- detailed description
+#style Wiki/styles/mtorus.css
+
+
+** The new frontend
+
+Basically we decided (and I'm carefully doing anything possible) to 
+keep as much stuff as possible from the MTorus 1.6 Revision (which has been
+chosen to be the revision to fork off.
+
+At the moment, when implementing the division between frontend and backend
+I personally like to use the two-files-in-one method to keep the code working
+as much as possible during development.
+
+Thus you will find the usage of new features only if they are congruent to
+the MTorus 1.6 code.
+
+
+** The new backend
+
+If you carefully examine the cvs diffs at berlios.de you will probably have noticed 
+that the current mtorus backend (mtorus-element.el) is already the second approach
+to establish a more abstract handling of the contents of an mtorus.
+
+The first new thing you will notice is that in former times an mtorus consisted
+of two categories of basic types: Namely rings and some other category usually
+seen as the elements of the rings (buffers/markers).
+
+However we got rid of this and implemented a more abstract view of this.
+Currently there are elements only plus one specially treated symbol acting as
+container: the mtorus-universe (available through the variable `mtorus-elements').
+
+Actually this container is an element itself (namely one of type `ring'), but for
+bootstrapping issues it is existent before any other element exists.
+It is added to itself once it comes to initialization.
+
+The reason for this new second approach is that I realized during implementation
+of the new abstract torus handling that adding rings to the torus and adding elements
+to a ring is basically the same.
+
+The new MTorus backend will consist of merely handlers for MTorus elements
+and handlers for MTorus types. 
+Any MTorus element is of a certain type, classifying this element and providing 
+thus (equal) means (for equal types) to access the functionality of the element.
+
+
+** The MTorus types
+
+MTorus types are yet to be defined.
+We currently provide just a small pre-defined set of types: the mtorus-ring, the
+mtorus-buffer and the mtorus-marker.
+
+Instead of providing these hard-coded we concentrate our effort on effectively
+providing methods to create those types yourselves.
+
+Generation of types can be done rather simply by calling the type-creation handler and
+providing some information, for example:
+- the name of the type
+- predicate function(s) to determine if given elements are of this type
+- function(s) to call when adding/deleting elements to elements of this type
+- function(s) to call when selecting/deselecting elements of this type
+and so on.
+
+Due to our personal annoyances at most packages for the absence of hooks 
+(and thus preventing lots of defadvices) we decided to provide
+hooks for _everything_.
+
+That's why there are hooks lists that provide some sort of methodology on
+currently available features.
+
+At the moment following hooks are predefined:
+- (predicate . p)
+- (pre-addition . pre-addition-funs)
+- (post-addition . post-addition-funs)
+- (pre-deletion . pre-deletion-funs)
+- (post-deletion . post-deletion-funs)
+- (pre-selection . pre-selection-funs)
+- (post-selection . post-seletion-funs)
+- (pre-deselection . pre-deselection-funs)
+- (post-deselection . post-deselection-funs)
+
+Let's discuss the hooks in detail
+
+- predicate
+predicate function(s) to validate elements.
+Any of these function(s) should return `non-nil' iff element
+is of the specified type
+
+- pre-creation
+function(s) to be called just before some element of the
+specified type is about to be created
+
+- post-creation
+function(s) to be called after some element of the
+specified type has been created
+
+- pre-deletion
+function(s) to be called just before some element of the
+specified type is about to be deleted
+
+- post-deletion
+function(s) to be called after some element of the
+specified type has been deleted
+
+- pre-selection
+function(s) to be called just before some element of this type
+is selected.
+
+- post-selection
+function(s) to be called after some element of this type
+has been selected.
+
+- pre-deselection
+function(s) to be called just before some element of this type
+is deselected (i.e. another element is selected).
+This hook is actually almost the same as pre-selection but
+it is called with the `old' element in contrast
+
+- post-deselection
+function(s) to be called after some element of this type
+has been deselected (i.e. another element is selected).
+This hook is actually almost the same as post-selection but
+it is called with the `old' element in contrast
+
+You will realize that exactly the actions in between the pre- and post-
+hooks are the hook actions run by mtorus-element elements.
+
+*** Predefined Types
+However, there are some predefined types, namely ring, marker and buffer.
+At the moment you have to invoke <code>mtorus-type-initialize</code> to
+use one of these.
+
+Let's discuss the types in detail:
+
+ring |
+Actually ring tries to simulate mtorus-1.6 rings.
+marker |
+Actually marker tries to simulate mtorus-1.6 markers.
+buffer |
+Almost the same as marker, but does not save a position in the buffer
+but the buffer itself.
+
+
+** The MTorus elements
+
+Once you have created some types you can start creating elements using these types.
+For the creation of an element you provide some of the following information:
+- function(s) that can determine the next/previous element
+- function(s) to be called when reading from the element
+- function(s) to be called when saving to the element
+- function(s) to be called when the element is altered
+
+I finally decided to organize elements in hash-tables because
+- they are fast
+- they have opaque support for basic operations 
+  (such as adding, altering and removing of keys)
+- they are easy to dump
+- they approximate the set property of the mtorus-elements best
+  (the arrangement order of the elements within the container is not
+   not needed, further lists have longer access times for elements 
+   beyond the cdddddddd...ddddddddr of the list)
+
+Though hash-tables themselves provide various facilties to not put
+or get accidentally elements with the same key, the keys put into
+this hash-table are (per default) 8 digits hexadecimal random number
+cookies.
+
+At the moment it's uncertain how the hash-table-entries look like.
+At least for every bound element that is in use there's a hash-key.
+
+
+** The MTorus topology
+
+We use a rather straightforward network/graph structure to induce a graph
+(and thus a topology) on the set of elements.
+
+The whole topology is handled by `mtorus-topology-alist'
+These functions are really generic and neither per-type nor per-element!
+
+If you want to hook into one of the latter cases use
+`mtorus-type-hooks-alist' and `mtorus-element-hooks-alist' respectively.
+
+Entries look like
+  \(hook-specifier . hook-name\)
+
+Any of these is essential for MTorus and listed here:
+
+- next-element 
+According to the sketch below this function determines the brother
+of an element.
+
+- prev-element
+According to the sketch below this function determines the sister
+of an element.
+
+- parent-element
+According to the sketch below this function determines the father
+of an element.
+
+- child element
+According to the sketch below this function determines the son
+of an element.
+
+Of course the other relatives are computed as follows:
+- aunt = sister of father
+- uncle = brother of father
+- daughter = sister of son
+
+Topology sketch:
+
+<pre>        aunt - father - uncle      </pre>
+<pre>            \    &#124     /            </pre>
+<pre> sister - CurrentElement - brother </pre>
+<pre>            /         \            </pre>
+<pre>        daughter        son        </pre>
+
+
+Furthermore it is obvious that relative elements does not necessarily
+have to be distinct, i.e. it is possible to form networks where the
+aunt of an element is its brother.
+
+
+
+
+<!--
+Local Variables:
+emacs-wiki-publishing-header: "./includes/header"
+emacs-wiki-publishing-footer: "./includes/footer"
+End:
+-->

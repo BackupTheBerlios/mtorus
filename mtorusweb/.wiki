@@ -1,0 +1,538 @@
+;;; -*- emacs-lisp -*-
+
+
+;;(require 'ase-graph)
+
+
+(mapc 'load-file (directory-files (concat (getenv "lispdir") "/emacs-wiki") t ".+\\.el$"))
+;;(mapc 'load-file (directory-files (concat (getenv "lispdir") "/remember") t ".+\\.el$"))
+(define-key emacs-wiki-mode-map [f10] 'emacs-wiki-publish)
+
+
+(defun* my-emacs-wiki-source-href (url &optional &key name img class id)
+  "Return an href anchor string for URL and NAME."
+  (concat "<a"
+          (and class (format " class=\"%s\"" class))
+          (and id (format " id=\"%s\"" id))
+          (format " href=\"%s\"" url)
+          "\">"
+          (cond
+           ((and img name) (format "<img src=\"%s\" alt=\"%s\">" img name))
+           (img (format "<img src=\"%s\">" img))
+           (name name)
+           (t url))
+          "</a>"))
+
+
+(require 'htmlize)
+(defun* my-emacs-wiki-fontify-tag (beg end highlight-p &rest ignore)
+  "Return a fontified ..."
+  (let* ((end (save-excursion (re-search-forward "</fontify>") (match-beginning 0)))
+         (snippet (buffer-substring beg end)))
+    (with-temp-buffer
+      (insert snippet)
+      (emacs-lisp-mode)
+      (font-lock-mode 1)
+      (let* ((buf (htmlize-buffer))
+             (high (with-current-buffer buf
+                     (goto-char (point-min))
+                     (goto-char (search-forward "<body>"))
+                     (buffer-substring (point)))))
+        (kill-buffer buf)
+        (goto-char end)
+        (insert high)))))
+
+
+(defun make-temp-file (prefix &optional dir-flag suffix)
+  "Create a temporary file.
+The returned file name (created by appending some random characters at the end
+of PREFIX, and expanding against `temporary-file-directory' if necessary),
+is guaranteed to point to a newly created empty file.
+You can then use `write-region' to write new data into the file.
+
+If DIR-FLAG is non-nil, create a new empty directory instead of a file.
+
+If SUFFIX is non-nil, add that at the end of the file name."
+  (let ((umask (default-file-modes))
+	file)
+    (unwind-protect
+	(progn
+	  ;; Create temp files with strict access rights.  It's easy to
+	  ;; loosen them later, whereas it's impossible to close the
+	  ;; time-window of loose permissions otherwise.
+	  (set-default-file-modes #o700)
+	  (while (condition-case ()
+               (progn
+                 (setq file
+                       (make-temp-name
+                        (expand-file-name prefix temporary-file-directory)))
+                 (if suffix
+                     (setq file (concat file suffix)))
+                 (if dir-flag
+                     (make-directory file)
+                   (unless (file-exists-p file)
+                     (write-region "" nil file nil 'silent)))
+                 nil)
+             (file-already-exists t))
+	    ;; the file was somehow created by someone else between
+	    ;; `make-temp-name' and `write-region', let's try again.
+	    nil)
+	  file)
+  ;; Reset the umask.
+  (set-default-file-modes umask))))
+
+(defvar my-emacs-wiki-never-publish '("\\.\\(?:jpg\\|png\\|css\\)")
+  "Files never to be published.")
+
+(defun emacs-wiki-private-p (name)
+  "Return non-nil if NAME is a private page, and shouldn't be published."
+  (if name
+      (if emacs-wiki-use-mode-flags
+          (let* ((page-file (emacs-wiki-page-file name t))
+                 (filename (and page-file (file-truename page-file))))
+            (if filename
+                (or (eq ?- (aref (nth 8 (file-attributes
+                                         (file-name-directory filename))) 7))
+                    (eq ?- (aref (nth 8 (file-attributes filename)) 7))
+                    (some (lambda (rexp)
+                            (string-match rexp filename))
+                          my-emacs-wiki-never-publish))))
+        (let ((private-pages emacs-wiki-private-pages) private)
+          (while private-pages
+            (if (string-match (car private-pages) name)
+                (setq private t private-pages nil)
+              (setq private-pages (cdr private-pages))))
+          private))))
+
+;; 
+;; (defun emacs-wiki-walk-directories (directories)
+;;   "Return a list of subdirectories in DIRECTORIES, excluding hidden dirs.
+;; You can use this when initializing `emacs-wiki-directories'."
+;;   (let (d)
+;;     (while directories
+;;       (and (file-directory-p (car directories))
+;;            (setq d (append d (list (car directories)))
+;;                  directories (append directories
+;;                                      (remove-if (lambda (file)
+;;                                                   (some (lambda (rexp)
+;;                                                           (string-match rexp file))
+;;                                                         my-emacs-wiki-never-publish))
+;;                                                 (directory-files
+;;                                                  (car directories) t "^[^.,+={]" t)))))
+;;       (setq directories (cdr directories)))
+;;     d))
+(defun emacs-wiki-walk-directories (directories)
+  "Return DIRECTORIES."
+  directories)
+
+
+
+;;;
+;;;
+;;; my menus
+
+(defvar my-emacs-wiki-category-graph nil
+  "Defines a navigation graph.
+Obviously this should be some stuff defined per project.
+This is just the tree to define which categories occur.
+See also `my-emacs-wiki-categories'")
+(defvar my-emacs-wiki-categories nil
+  "Defines an alist of categories of the form
+\(category-name . wiki-page-or-uri\)")
+
+
+;;(setq my-emacs-wiki-category-graph '((main . projects) (main . whatever) (projects . whatever)))
+
+(defun my-emacs-wiki-make-navigation-tree (&optional element)
+  "Make the primary HTML navigation menu."
+  (let (graph)
+    (mapc (lambda (rel)
+            (unless (assoc rel graph)
+              (let (links)
+                (mapc (lambda (node)
+                        (and (eq (car node) rel)
+                             (add-to-list 'links (list (cdr node)))))
+                      my-emacs-wiki-category-graph)
+                (add-to-list 'graph (cons rel (reverse links))))))
+          (mapcar 'car my-emacs-wiki-category-graph))
+    (reverse graph)))
+;;(my-emacs-wiki-make-navigation-tree)
+
+
+(defun my-emacs-wiki-reduce-navigation-graph (graph)
+  (let ((red-graph (copy-sequence graph)))
+    (mapc (lambda (rel)
+            (let ((relcdr (cdr rel)))
+              (mapc (lambda (child)
+                      (let ((asschild (assoc (car child) red-graph)))
+                        (and asschild
+                             (setq red-graph (remove asschild red-graph))
+                             (setcar child asschild))))
+                    relcdr)))
+          red-graph)
+    red-graph))
+
+;;(my-emacs-wiki-reduce-navigation-graph '((main (projects) (whatever)) (projects (whatever))))
+
+
+(defun my-emacs-wiki-find-parent-nodes (node graph)
+  "Finds only adjacents with parent-of-NODE property in GRAPH."
+  (let (parent-adjacents)
+    (mapc (lambda (rel)
+            (and (eq (cdr rel) node)
+                 (add-to-list 'parent-adjacents (car rel))))
+          graph)
+    (reverse parent-adjacents)))
+(defun my-emacs-wiki-find-child-nodes (node graph)
+  "Finds only adjacents with child-of-NODE property in GRAPH."
+  (let (child-adjacents)
+    (mapc (lambda (rel)
+            (and (eq (car rel) node)
+                 (add-to-list 'child-adjacents (cdr rel))))
+          graph)
+    (reverse child-adjacents)))
+
+
+(defun my-emacs-wiki-find-adjacent-nodes (node graph)
+  "Finds adjacents (neighbors) of NODE in GRAPH."
+  (let ((parent-adjacents (my-emacs-wiki-find-parent-nodes node graph))
+        (child-adjacents (my-emacs-wiki-find-child-nodes node graph)))
+    (list parent-adjacents child-adjacents)))
+
+;;(setq test-graph '((main . projects) (main . whatever) (main . still-one) (main . test) (projects . test) (whatever . test)))
+;;(my-emacs-wiki-find-adjacent-nodes 'main test-graph)
+
+
+
+(defun my-emacs-wiki-parent-node-order (node graph)
+  "Returns the parent order of NODE in GRAPH."
+  (let ((adj (my-emacs-wiki-find-parent-nodes node graph)))
+    (length adj)))
+;;(my-emacs-wiki-parent-node-order 'test test-graph)
+(defun my-emacs-wiki-child-node-order (node graph)
+  "Returns the child order of NODE in GRAPH."
+  (let ((adj (my-emacs-wiki-find-child-nodes node graph)))
+    (length adj)))
+;;(my-emacs-wiki-child-node-order 'main test-graph)
+(defun my-emacs-wiki-node-order (node graph)
+  "Returns the child order of NODE in GRAPH."
+  (+ (my-emacs-wiki-parent-node-order node graph)
+     (my-emacs-wiki-child-node-order node graph)))
+;;(my-emacs-wiki-node-order 'test test-graph)
+
+
+(defun my-emacs-wiki-nodes (graph)
+  "Returns the node set of GRAPH."
+  (let (nodeset)
+    (mapc (lambda (rel)
+            (add-to-list 'nodeset (car rel))
+            (add-to-list 'nodeset (cdr rel)))
+          graph)
+    (reverse nodeset)))
+
+;;(my-emacs-wiki-nodes test-graph)
+
+(defun my-emacs-wiki-adjacence-structure (graph)
+  (let* ((nodeset (my-emacs-wiki-nodes graph))
+         (porder (mapcar (lambda (node)
+                           (my-emacs-wiki-parent-node-order node graph))
+                         nodeset))
+         (nset+pord (mapcar* 'cons porder nodeset)))
+    (sort nset+pord (lambda (n1 n2)
+                      (< (car n1) (car n2))))))
+;;(my-emacs-wiki-adjecence-structure test-graph)
+
+(defun my-emacs-wiki-2-combination-set (set)
+  "Returns a subset of the powerset of SET, containing exactly
+the 2-element sets."
+  (cond ((eq (length set) 2)
+         (list (cons (car set) (cdr set))))
+        (t (append (mapcar (lambda (cdr-elt)
+                             (list (car set) cdr-elt))
+                           (cdr set))
+                   (my-emacs-wiki-2-combination-set (cdr set))))))
+;;(my-emacs-wiki-2-combination-set '(a b c d e))
+
+;; (defun my-emacs-wiki-group-nodeset (nodeset predicate &optional result-function)
+;;   "Returns a grouped version of NODESET, grouping any two
+;; elements iff PREDICATE returns t."
+;;   (let ((nset-comb (my-emacs-wiki-2-combination-set nodeset))
+;;         result)
+;;     (mapc (lambda (elt)
+;;             (add-to-list 'result (car elt))
+;;             (add-to-list 'result (cadr elt))
+;;             (and (funcall predicate (car elt) (cadr elt))
+;;                  (or (and result
+;;                           (add-to-list 'res (funcall result (car elt) (cadr elt))))
+;;                      (add-to-list 'res elt))))
+;;           nset-comb)
+;;     (reverse res)))
+;; (my-emacs-wiki-group-nodeset (my-emacs-wiki-adjacence-structure test-graph)
+;;                              (lambda (n+pord1 n+pord2)
+;;                                (eq (car n+pord1) (car n+pord2)))
+;;                              (lambda (elt1 elt2)
+;;                                (let ((curr-val (assoc (car elt1) result)))
+;;                                  (set-alist result curr-val ( curr-val (cdr elt1) (cdr elt2))))))
+;;(my-emacs-wiki-2-combination-set (my-emacs-wiki-adjacence-structure test-graph))
+
+
+(defvar my-emacs-wiki-always-have-a-parent-p nil
+  "If non-nil each lookup for a specific node will have a result.")
+(setq my-emacs-wiki-always-have-a-parent-p t)
+
+;;(setq test-tree '((main . ((projects) (contact) (emacs) (research)))))
+(defun my-emacs-wiki-path-to-leaf-intern (leaf tree)
+  (let (result)
+    (or (let ((assoc-car (car (assoc leaf tree))))
+          (and assoc-car
+               (list assoc-car)))
+        (progn
+          (mapc (lambda (subtree)
+                  (let ((rec (my-emacs-wiki-path-to-leaf-intern leaf (cdr subtree))))
+                    (and rec
+                         (add-to-list 'result (car subtree))
+                         (mapc (lambda (elt)
+                                 (add-to-list 'result elt))
+                               (let ((list (cond ((listp rec)
+                                                  rec)
+                                                 (t (list rec)))))
+                                 list)))))
+                tree)
+          (reverse result)))))
+(defun my-emacs-wiki-path-to-leaf (leaf tree)
+  (or (my-emacs-wiki-path-to-leaf-intern leaf tree)
+      (and my-emacs-wiki-always-have-a-parent-p
+           (list 'main leaf))))
+;;(my-emacs-wiki-path-to-leaf 'main test-tree)
+;;(my-emacs-wiki-path-to-leaf 'kashx '((research . ((kash . ((emacs))))) (main . ((projects . ((what . ((contact) (emacs)))))))))
+
+(defun my-emacs-wiki-subtree-by-path (path tree)
+  (let ((subtree (assoc (car path) tree)))
+    (or (and (cdr path)
+             (my-emacs-wiki-subtree-by-path (cdr path) subtree))
+        tree)))
+(defun my-emacs-wiki-subtree-by-leaf (leaf tree)
+  (let ((path (my-emacs-wiki-path-to-leaf leaf tree)))
+    (cond ((eq (length path) 1)
+           (mapcar (lambda (elt)
+                     (list (car elt)))
+                   tree))
+          (t (cdr (my-emacs-wiki-subtree-by-path path tree))))))
+;;(my-emacs-wiki-subtree-by-leaf 'main test-tree)
+
+(defun my-emacs-wiki-rotate-list-left (list)
+  (append (cdr list) (list (car list))))
+;;(my-emacs-wiki-rotate-list-left '(a b c d e))
+
+(defun my-emacs-wiki-younger-leaves (leaf tree)
+  (let* ((subtree (my-emacs-wiki-subtree-by-leaf leaf tree))
+         (compl-elt (assoc leaf subtree)))
+    (while (not (eq (car subtree) compl-elt))
+      (setq subtree (my-emacs-wiki-rotate-list-left subtree)))
+    (cdr subtree)))
+(defun my-emacs-wiki-elder-leaves (leaf tree)
+  (let* ((subtree (my-emacs-wiki-subtree-by-leaf leaf tree))
+         (compl-elt (assoc leaf subtree)))
+    (while (not (eq (car subtree) compl-elt))
+      (setq subtree (my-emacs-wiki-rotate-list-left subtree)))
+    (and (> (length subtree) 2)
+         (reverse (cdr subtree)))))
+;;(my-emacs-wiki-elder-leaves 'emacs test-tree)
+
+
+(defun my-emacs-wiki-render-navigation-tree (leaf tree)
+  (and leaf
+       (let* ((path (my-emacs-wiki-path-to-leaf leaf tree))
+              (younger-path (mapcar (lambda (pleaf)
+                                      (caar (my-emacs-wiki-younger-leaves pleaf tree)))
+                                    path))
+              (elder-path (mapcar (lambda (pleaf)
+                                    (caar (my-emacs-wiki-elder-leaves pleaf tree)))
+                                  path)))
+         (list elder-path path younger-path))))
+;;(my-emacs-wiki-render-navigation-tree 'emacs test-tree)
+
+
+(defun my-emacs-wiki-make-menu (category &optional category-tree)
+  "Make a HTML link for the category.
+If the current  buffer name is a member of the category mark its link
+with a class=\"selected\" attribute."
+  (let* ((category-tree (or category-tree
+                            my-emacs-wiki-category-tree))
+         (curr-cat (car (rassoc (or category "WikiIndex") my-emacs-wiki-categories)))
+         (nav-tree (my-emacs-wiki-render-navigation-tree curr-cat category-tree)))
+    (format "%s\n%s\n%s"
+            (format "<tr class=\"hood\">\n%s\n</tr>\n"
+                    (mapconcat (lambda (cat)
+                                 (let ((cat-page (cdr (assoc cat my-emacs-wiki-categories))))
+                                   (format "<td>%s</td>"
+                                           (or (and cat-page
+                                                    (emacs-wiki-link-href cat-page
+                                                                          (capitalize (format "%s"
+                                                                                              cat))))
+                                               "&nbsp;"))))
+                               (first nav-tree)
+                               "\n<td></td>\n"))
+            (format "<tr class=\"path\">\n%s\n</tr>\n"
+                    (mapconcat (lambda (cat)
+                                 (let ((cat-page (cdr (assoc cat my-emacs-wiki-categories))))
+                                   (format "<td>%s</td>"
+                                           (or (and cat-page
+                                                    (emacs-wiki-link-href cat-page
+                                                                          (capitalize (format "%s"
+                                                                                              cat))))
+                                               "&nbsp;"))))
+                               (second nav-tree)
+                               "\n<td> &rarr; </td>\n"))
+            (format "<tr class=\"hood\">\n%s\n</tr>\n"
+                    (mapconcat (lambda (cat)
+                                 (let ((cat-page (cdr (assoc cat my-emacs-wiki-categories))))
+                                   (format "<td>%s</td>"
+                                           (or (and cat-page
+                                                    (emacs-wiki-link-href cat-page
+                                                                          (capitalize (format "%s"
+                                                                                              cat))))
+                                               "&nbsp;"))))
+                               (third nav-tree)
+                               "\n<td></td>\n")))))
+;;(my-emacs-wiki-make-menu "WelcomePage" test-tree)
+
+
+(defun my-emacs-wiki-make-head-menu ()
+  "build the head menu"
+;;   <tr>
+;;               <td><lisp>"[[WelcomePage][Main]]"</lisp></td>
+;;               <td> </td>
+;;               <td>[[RecentNews][News]]</td>
+;;               <td> </td>
+;;               <td>[[GettingStarted][Introduction]]</td>
+;;               <td> </td>
+;;               <td>[[GettingMtorus][Download]]</td>
+;;               <td> </td>
+;;               <td>[[DetailedDescription][Documention]]</td>
+;;               <td> </td>
+;;               <td>[[GettingHelp][Contact]]</td>
+;;               <td> </td>
+;;             </tr>
+  (format "<tr>%s</tr>"
+          (mapconcat #'(lambda (item)
+                         (format "<td>%s</td>"
+                                 (let ((wiki-link (format "%s" (cdr-safe (assoc item my-emacs-wiki-categories))))
+                                       (wiki-ref (capitalize (format "%s" item))))
+                                   (and wiki-link
+                                        (emacs-wiki-link-href wiki-link wiki-ref)))))
+                     (remove 'index (mapcar 'car my-emacs-wiki-category-tree))
+                     "<td>&nbsp;</td>")))
+;;(emacs-wiki-link-href "WelcomePage" "Main")
+
+(defun my-emacs-wiki-publishing-header-function ()
+  "Tries to find locally bound `emacs-wiki-publishing-header' as file first"
+  (let ((publishing-header emacs-wiki-publishing-header))
+    (and (file-readable-p publishing-header)
+         (setq emacs-wiki-publishing-header
+               (with-temp-buffer
+                 (insert-file-contents publishing-header)
+                 (buffer-string))))))
+(add-hook 'emacs-wiki-before-markup-hook 'my-emacs-wiki-publishing-header-function)
+
+(defun my-emacs-wiki-publishing-footer-function ()
+  "Tries to find locally bound `emacs-wiki-publishing-footer' as file first"
+  (let ((publishing-footer emacs-wiki-publishing-footer))
+    (and (file-readable-p publishing-footer)
+         (setq emacs-wiki-publishing-footer
+               (with-temp-buffer
+                 (insert-file-contents publishing-footer)
+                 (buffer-string))))))
+(add-hook 'emacs-wiki-before-markup-hook 'my-emacs-wiki-publishing-footer-function)
+
+(defun my-emacs-wiki-publishing-index-function ()
+  "Makes the index page look nice."
+  (let ((page-name (emacs-wiki-page-name)))
+    (ignore-errors
+      (and (or (equal "WikiIndex" page-name)
+               (null page-name))
+           (setq emacs-wiki-publishing-header
+                 (with-temp-buffer
+                   (insert-file-contents (expand-file-name my-emacs-wiki-include-header))
+                   (concat (buffer-string)
+                           "\n\n"
+                           "<img src=\"Wiki/pics/logo.mtorus.160.png\" align=\"right\" alt=\"mtorus logo\">"))
+                 emacs-wiki-publishing-footer
+                 (with-temp-buffer
+                   (insert-file-contents (expand-file-name my-emacs-wiki-include-footer))
+                   (buffer-string)))))))
+(add-hook 'emacs-wiki-before-markup-hook 'my-emacs-wiki-publishing-index-function)
+
+;;(emacs-wiki-published-file "WelcomePage")
+;;(emacs-wiki-publish-files '("WelcomePage" "SebastianFreundt" "WikiIndex") nil)
+
+
+(add-hook 'emacs-wiki-mode-hook 'camelCase-mode)
+
+
+;;; misc
+
+(defvar my-emacs-wiki-include-header "")
+(defvar my-emacs-wiki-include-footer "")
+
+;; planner'n'Wiki stuff
+(setq planner-directory "~/.plans"
+      emacs-wiki-before-highlight-buffer-hook '(planner-highlight-notes
+                                                planner-highlight-tasks))
+
+
+;;; the wiki settings
+(add-to-list 'emacs-wiki-markup-tags '("fontify" nil t nil my-emacs-wiki-fontify-tag))
+;;(setq emacs-wiki-markup-tags '(("fontify" nil nil t my-emacs-wiki-fontify-tag) ("example" t nil t emacs-wiki-example-tag) ("verbatim" t nil t emacs-wiki-verbatim-tag) ("nowiki" t nil t emacs-wiki-nowiki-tag) ("verse" t nil nil emacs-wiki-verse-tag) ("numbered" t nil nil emacs-wiki-numbered-tag) ("nop" nil nil t emacs-wiki-nop-tag) ("contents" nil t nil emacs-wiki-contents-tag) ("include" nil t nil emacs-wiki-include-tag) ("c-source" t t t emacs-wiki-c-source-tag) ("comment" t nil nil emacs-wiki-comment-tag)))
+
+(setq emacs-wiki-file-alist nil
+      emacs-wiki-directories '("~/mylisp/web.mtorus.berlios/Wiki")
+      emacs-wiki-footer-date-format "%Y-%m-%d %H:%M (%Z)"
+      emacs-wiki-maintainer "http://mtorus.berlios.de/"
+      emacs-wiki-inline-images t
+      emacs-wiki-interwiki-names
+      '(("WikiPlanner" . (lambda (tag) (emacs-wiki-project-interwiki-link "WikiPlanner" tag)))
+        ("GnuEmacs" . "http://www.gnu.org/software/emacs/emacs.html")
+        ("TheEmacsWiki" . (lambda (tag) (concat "http://www.emacswiki.org/cgi-bin/wiki.pl?" (or tag "SiteMap"))))
+        ("EmacsWiki" . (lambda (tag) (concat "http://www.emacswiki.org/cgi-bin/wiki.pl?" (or tag "SiteMap"))))
+        ("MeatballWiki" . (lambda (tag) (concat "http://www.usemod.com/cgi-bin/mb.pl?" (or tag "MeatballWiki"))))
+        ("ArchWiki" . (lambda (tag) (concat "http://wiki.gnuarch.org/moin.cgi?" (or tag "FrontPage"))))
+        ;; not wikis but nearly:
+        ("GnaOrg" . "https://gna.org/projects/"))
+      emacs-wiki-publish-function 'emacs-wiki-publish-current
+      emacs-wiki-publishing-directory (expand-file-name "~/mylisp/web.mtorus.berlios/")
+      emacs-wiki-publishing-transforms '(("WelcomePage" . "index")
+                                         ("\\(.+\\)" . "\\1"))
+      emacs-wiki-use-mode-flags t
+      emacs-wiki-style-sheet "<link rel=\"stylesheet\" type=\"text/css\" href=\"Wiki/styles/mtorus.css\"/>"
+      emacs-wiki-file-ignore-regexp "\\`\\(\\..*\\|\\.?#.*\\|.*,v\\|.*~\\|\\.\\.?\\)\\'"
+      emacs-wiki-private-pages `(".*\\.\\(?:jpg\\|png\\)"
+                                 ".*\\.\\(?:css\\)"
+                                 ".*\\.\\(?:gz\\|tar\\|.id\\)"
+                                 "includes" "footer" "header" ".+@.+--"
+                                 "dotwiki"
+                                 "{arch}"
+                                 "patch-[0-9]+"
+                                 "base-[0-9]+"
+                                 "/,"
+                                 "/\\."
+                                 "/\\+"
+                                 "/=")
+      my-emacs-wiki-include-header "./includes/header"
+      my-emacs-wiki-include-footer "./includes/footer")
+;;(emacs-wiki-published-file "ProjectsPage")
+;;(emacs-wiki-private-p "default.jpg")
+;;(emacs-wiki-generate-index t t t)
+
+
+(setq my-emacs-wiki-category-tree '((main) (news) (introduction) (download) (documentation) (contact) (index))
+      my-emacs-wiki-categories '((main . "WelcomePage")
+                                 (index . "WikiIndex")
+                                 (documentation . "DetailedDescription")
+                                 (download . "GettingMtorus")
+                                 (introduction . "GettingStarted")
+                                 (contact . "GettingHelp")
+                                 (news . "RecentNews")))
+
+
+;; .wiki ends here

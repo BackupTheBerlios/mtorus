@@ -1,0 +1,37 @@
+#title MTorus -- getting help
+#style Wiki/styles/mtorus.css
+
+* Contact
+
+** email the authors
+
+- [[mailto:ska@users.berlios.de][ska]]
+- [[mailto:hroptatyr@users.berlios.de][hroptatyr]]
+
+
+** berlios forum
+
+You can use [[http://developer.berlios.de/forum/?group_id=1633][the berlios project's forum]].
+
+
+** mailing list
+
+Currently you can subscribe to a variety of mailing lists.
+See [[http://developer.berlios.de/mail/?group_id=1633][mailing lists section]] at berlios.
+
+
+
+** IRC
+Join us at #xemacs on irc://irc.freenode.net.
+
+This isn't really a channel dedicated to MTorus only but more generally dedicated to XEmacs issues.
+
+
+
+
+<!--
+Local Variables:
+emacs-wiki-publishing-header: "./includes/header"
+emacs-wiki-publishing-footer: "./includes/footer"
+End:
+-->

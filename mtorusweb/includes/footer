@@ -1,0 +1,66 @@
+
+<!-- -*- html -*- -->
+    <!-- Page published by Emacs Wiki ends here -->
+    <div class="navfoot">
+      <hr/>
+      <table width="100%" border="0" summary="Footer navigation">
+        <tr>
+          <td width="33%" align="left">
+            <lisp>
+              (if buffer-file-name
+                  (concat
+                   "<span class=\"footdate\">Updated: "
+                   (format-time-string emacs-wiki-footer-date-format
+                    (nth 5 (file-attributes buffer-file-name)))
+                   (and emacs-wiki-serving-p
+                        (emacs-wiki-editable-p (emacs-wiki-page-name))
+                        (concat
+                         " / "
+                         (emacs-wiki-link-href
+                          (concat "editwiki?" (emacs-wiki-page-name))
+                          "Edit")))
+                   "</span>"))
+            </lisp>
+          </td>
+          <td width="34%" align="center">
+            <span class="foothome">
+              <lisp>
+                (concat
+                 (and (emacs-wiki-page-file emacs-wiki-home-page t)
+                      (not (emacs-wiki-private-p emacs-wiki-home-page))
+                      (concat
+                       (emacs-wiki-link-href emacs-wiki-home-page "Home")
+                       " / "))
+                 (emacs-wiki-link-href emacs-wiki-index-page "Index")
+                 (and (emacs-wiki-page-file "ChangeLog" t)
+                      (not (emacs-wiki-private-p "ChangeLog"))
+                      (concat
+                       " / "
+                       (emacs-wiki-link-href "ChangeLog" "Changes"))))
+              </lisp>
+            </span>
+          </td>
+          <td width="33%" align="right">
+            <lisp>
+              (if emacs-wiki-serving-p
+                  (concat
+                   "<span class=\"footfeed\">"
+                   (emacs-wiki-link-href "searchwiki?get" "Search")
+                   (and buffer-file-name
+                        (concat
+                         " / "
+                         (emacs-wiki-link-href
+                          (concat "searchwiki?q=" (emacs-wiki-page-name))
+                          "Referrers")))
+                   "</span>")
+              (concat
+               "<span class=\"footdate\">Created by "
+               "<a href=\"" (emacs-wiki-link-url "TheEmacsWiki#EmacsWikiMode") "\">emacs-wiki.el"
+               "</a></span>"))
+            </lisp>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,57 @@
+#title MTorus
+#style Wiki/styles/mtorus.css
+
+<lisp>
+(my-emacs-wiki-source-href
+  "Wiki/pics/logo.mtorus.320.png" :img "Wiki/pics/logo.mtorus.320.png" :class "right" :name "mtorus logo")
+</lisp>
+
+* MTorus
+
+MTorus provides functionality for switching buffers quickly and general navigation issues within emacs.<br/>
+I hope the logo describes everything ;).
+
+project's page | http://developer.berlios.de/projects/mtorus
+wiki page | EmacsWiki#MTorus
+ska's page | http://www.skamphausen.de/software/skamacs/mtorus.html
+hroptatyr's page | http://www.hlidskjalf.de/MtorusPage.html
+
+- GettingStarted
+- DetailedDescription
+- GettingHelp
+
+** New Generation MTorus
+
+Yes, it's true!
+The wonderful [[EmacsWiki#SwitchingBuffers][buffer switching]] technique provided by mtorus
+is currently revised and will be properly divided into a backend/frontend combination.
+
+Though we do not plan to establish more than one frontend this is seemingly the
+best solution in order to provide comfortable development and support.
+
+For a more technical, but not so descriptive version of this page look at the
+Commentary: header in the file mtorus-element.el and the various comments
+throughout the file.
+
+
+** GettingMtorus
+
+You can be witness of the growth of the new generation MTorus.
+See the [[GettingMtorus][download page]] for that.
+
+For the ones who want a working mtorus, see
+- http://www.skamphausen.de/software/skamacs/mtorus.el
+
+or via berlios.de
+
+- http://developer.berlios.de/project/filelist.php?group_id=1633
+
+
+
+
+<!--
+Local Variables:
+emacs-wiki-publishing-header: "./includes/header"
+emacs-wiki-publishing-footer: "./includes/footer"
+End:
+-->

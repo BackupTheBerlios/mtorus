@@ -1,0 +1,29 @@
+#title MTorus -- getting mtorus
+#style Wiki/styles/mtorus.css
+
+* Download
+
+MTorus is available via berlios.de CVS, use
+
+=cvs -z3 -d:pserver:anonymous@cvs.mtorus.berlios.de:/cvsroot/mtorus co mtorus=
+
+to obtain your version.
+
+For those who rather stick to GNU arch use
+
+=tla register-archive hroptatyr@hlidskjalf.de--arch http://www.hlidskjalf.de/hroptatyr@hlidskjalf.de--arch=
+<br/>
+=tla get -A hroptatyr@hlidskjalf.de--arch mtorus--dev--1.0 mtorus=
+
+
+Note that current CVS/arch contains a very alpha version of mtorus.
+Both Stefan Kamphausen and me (Sebastian Freundt) have very little spare time to fiddle around with it.
+
+
+
+<!--
+Local Variables:
+emacs-wiki-publishing-header: "./includes/header"
+emacs-wiki-publishing-footer: "./includes/footer"
+End:
+-->

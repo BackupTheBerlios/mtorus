@@ -1,0 +1,143 @@
+/* -*- CSS -*- */
+
+body {
+  background-color: white;
+  color: black;
+  font-family: sans-serif
+}
+
+a:visited {color: #0d26a6}
+a:active  {color: #0d56f6}
+a:link    {color: #0d26a6}
+.right   {float: right;}
+
+
+table.all {
+  width: 100%;
+  background-color: white;
+  border-spacing: 0pt
+}
+/* this table contains the rest of the page */
+
+td.side {
+  background-color: #0d56f6;
+  width: 8%
+}
+td.title {
+  padding: 4pt;
+  font-size: xx-large;
+  font-weight: bold
+}
+td.body {
+  padding: 12pt
+} /* the main page content goes into this cell */
+h1 {
+  font-size: xx-large;
+  font-weight: bold
+}
+/* title table cell and h1 should have the same font */
+
+/*******************************************************************/
+/* navigation */
+tr.headnav {background-color: #10c510}
+/*******************************************************************/
+/* navigations spinne                                              */
+table.spider {padding: 1pt}
+
+tr.hood {font-size: x-small; color: black}
+tr.hood a:visited {color: #0d26a6}
+tr.hood a:active  {color: #0d56f6}
+tr.hood a:link    {color: #0d26a6} 
+
+tr.path {color: white; font-size: medium}
+tr.path a:visited {color: white}
+tr.path a:active  {color: #0d56f6}
+tr.path a:link    {color: white} 
+
+td.now {background-color: white; color: #00C500; font-size: medium}
+/*******************************************************************/
+table.tu {padding: 1pt; color: white; font-size: medium}
+/* tr.tu  {color: white; font-size: medium} */
+/* top navigation bar                                  */
+table.tu a:visited {color: white}
+table.tu a:active  {color: #0d56f6}
+table.tu a:link    {color: white} 
+/*******************************************************************/
+table.alpha {padding: 1pt; color: white; font-size: medium} 
+/* alphabet navigation bar on index pages           */
+table.alpha a:visited {color: white}
+table.alpha a:active  {color: #0d56f6}
+table.alpha a:link    {color: white} 
+
+/*******************************************************************/
+/* table of content */
+ul.toc {list-style-type: none;
+        text-indent: 0em;
+        marker-offset: 0em;
+        padding: 0em 0em 0em 1em }
+ul.toc li  {padding: 2pt 0ex 0ex 0ex;
+            font-size: large; 
+            font-weight:normal;
+            color: #0d56f6
+            }
+ul.toc li a:visited {color: #0d56f6}
+ul.toc li a:active  {color: #0d56f6}
+ul.toc li a:link    {color: #0d56f6}
+
+/* smaller toc entries.  for less significant entries   */
+/* e.g. download on the kash page in the manual version */ 
+li.tocs {padding: 2pt 0ex 0ex 0ex;
+         font-size: medium;
+         font-weight: normal}
+
+/***********************************************************/
+/* body                                                    */                  
+/***********************************************************/
+
+span.footdate { font-size: small; }
+
+em {font-style: normal; color: #0d56f6}
+/* this is used for math mode                       */
+/* all inline formulas should be in <em> </em> tags */
+div {font-style: normal; color: #0D56F6; text-align: center}
+/* display math mode:                               */
+/* formulas centered on a seperate line             */
+
+pre  {color: #00C500}
+/* multi line pieces of code */
+h2.code {font-size: large; 
+         color: #00C500; 
+         font-family: monospace; 
+         display: block;
+         margin: 1em 0em; 
+         font-weight: normal}
+h2.code a:visited {color: #0d56f6}
+h2.code a:active  {color: #0d56f6}
+h2.code a:link    {color: #0d56f6}
+/* for pages with lists of types, functions ....             */
+code {color: #00C500; font-size: medium; font-family: monospace; font-weight: normal}
+/* short pieces of code */
+code.head {font-size: large;
+          color: #00C500; 
+          font-family: monospace;
+          font-weight: normal}
+/* larger font for function names... on top of reference pages */
+code a:visited {color: #0d56f6}
+code a:active  {color: #0d56f6}
+code a:link    {color: #0d56f6}
+/* links in code */
+/* should only occur in automatically generated html, not in longdocs */
+/* or other texts                                                     */
+
+
+strong {font-style: bold}
+strong {color: black}
+/* use for emphasis */
+/* for instance titles of papers */
+
+h2 {color: #0d56f6}
+/* sections in introductory texts */
+h3 {color: #0d56f6}
+/* headers on intrinsic, type ... pages */
+h4 {color: #000000}
+/* subsections in longdocs */
