@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.5 2004/07/28 01:44:24 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.6 2004/08/01 14:09:38 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -62,8 +62,8 @@
 ;;; Code:
 
 (require 'mtorus-utils)
-(require 'mtorus-topology)
-(require 'mtorus-type)
+;; (require 'mtorus-topology)
+;; (require 'mtorus-type)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Administrative Settings ;;
@@ -75,7 +75,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.5 $"
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.6 $"
   "Version of mtorus-element backend.")
 
 
@@ -161,16 +161,32 @@ if they are not listed in one of
 ;;;
 ;;; hooks
 ;;;
-;; currently there are not many of them but this will change ;)
-;; see also the automagically created hooks when creating types or elements
-
+(defcustom mtorus-element-pre-creation-hook nil
+  "Hook run before a new element is about to be created.
+Note: This hook is run with given `element-specs' as argument."
+  :group 'mtorus-element)
+(defcustom mtorus-element-post-creation-hook nil
+  "Hook run after a new element has been created."
+  :group 'mtorus-element)
+(defcustom mtorus-element-pre-deletion-hook nil
+  "Hook run before an element is about to be deleted."
+  :group 'mtorus-element)
+(defcustom mtorus-element-post-deletion-hook nil
+  "Hook run after an element has been deleted."
+  :group 'mtorus-element)
+(defcustom mtorus-element-pre-selection-hook nil
+  "Hook run before an element is about to be selected."
+  :group 'mtorus-element)
+(defcustom mtorus-element-post-selection-hook nil
+  "Hook run after an element has been selected."
+  :group 'mtorus-element)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; now the real Code ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+;;; REVISE ME!!!!!!!!!!
 (defcustom mtorus-element-hooks-alist
   '((read-from-element . read-from-element-funs)
     (save-to-element . save-to-element-funs)
@@ -267,11 +283,11 @@ See also: `mtorus-element-generate-cookie-function'"
   (intern (format "mtorus-%s-%.8x" (or type 'element) (random))))
 ;;(mtorus-element-generate-cookie 'ring)
 
-(defun define-mtorus-element (&rest element-spec)
+(defun define-mtorus-element (&rest element-specs)
   "Creates and returns an mtorus-element.
-Use ELEMENT-SPEC to determine the properties
+Use ELEMENT-SPECS to determine the properties
 
-ELEMENT-SPEC is a set of :keyword value pairs.
+ELEMENT-SPECS is a set of :keyword value pairs.
 
 The mandatory keywords are:
 
@@ -296,10 +312,13 @@ Any further keywords to be parsed for should be added
 to `mtorus-element-additional-keywords'.
 
 Created elements are stored in `mtorus-elements' for reference."
+  
+  (run-hook-with-args 'mtorus-element-pre-creation-hook element-specs)
+
   (let* ((keylist (append mtorus-element-mandatory-keywords
                           mtorus-element-optional-keywords
                           mtorus-element-additional-keywords))
-         (e-spec (mtorus-utils-parse-spec element-spec keylist
+         (e-spec (mtorus-utils-parse-spec element-specs keylist
                                           mtorus-element-parse-unsupported-keywords))
 
          ;;; abstract this
@@ -337,6 +356,8 @@ Created elements are stored in `mtorus-elements' for reference."
 
     (mtorus-type-run-post-creation-funs e-type e-symbol)
 
+    (run-hook-with-args 'mtorus-element-post-creation-hook e-symbol)
+
     e-symbol))
 (defalias 'mtorus-define-element 'define-mtorus-element)
 (defalias 'mtorus-element-define 'define-mtorus-element)
@@ -367,23 +388,98 @@ If you wish to just unregister the element, see
 
 Attention, deletion or unregistration of elements does
 not (yet?) update rings that posess this element."
+  (run-hook-with-args 'mtorus-element-pre-deletion-hook element)
   (and (mtorus-element-p element)
        (mtorus-element-get-property element 'mtorus-element-deletable-p)
        (progn (mtorus-element-unregister element)
-              (makunbound element))))
+              (makunbound element)))
+  (run-hook-with-args 'mtorus-element-post-deletion-hook element)
+  element)
 
  
-;; (defun mtorus-ring-flush-rings (&rest ignore)
-;;   "Deletes all rings from `mtorus-rings'."
-;;   (mapc #'mtorus-ring-delete-ring mtorus-rings))
+(defun mtorus-element-set-current (element)
+  "Sets ELEMENT as current element.
+move me to mtorus-element.el?"
+  (setq mtorus-current-element
+        (or (and (mtorus-element-p element)
+                 element)
+            mtorus-current-element)))
+
+(defun mtorus-element-select (element)
+  "Selects ELEMENT.
+This runs some hooks at the moment."
+  (run-hook-with-args 'mtorus-element-pre-selection-hook element)
+  (mtorus-type-run-pre-selection-funs (mtorus-element-get-type element) element)
+  (mtorus-type-inherit-selection (mtorus-element-get-type element) element)
+  (mtorus-type-run-pre-selection-funs (mtorus-element-get-type element) element)
+  (run-hook-with-args 'mtorus-element-post-selection-hook element)
+  element)
+
+
+
+;;; some UI functions
+
+(defun mtorus-element-type-filter->fun-preds-1 (type-filter)
+  "Makes a predicate function."
+  (cond ((or (eq type-filter 'all)
+             (null type-filter))
+         (lambda (type)
+           t))
+        ((symbolp type-filter)
+         `(lambda (type)
+            (eq type ',type-filter)))
+        ((functionp type-filter)
+         type-filter)
+        ((eq (car type-filter) 'lambda)
+         type-filter)
+        (t nil)))
+(defun mtorus-element-type-filter->fun-preds (type-filter)
+  "Makes a predicate function list."
+  (cond ((or (symbolp type-filter)
+             (functionp type-filter)
+             (eq (car type-filter) 'lambda))
+         (list
+          (mtorus-element-type-filter->fun-preds-1
+           type-filter)))
+        (t (mapcar #'mtorus-element-type-filter->fun-preds-1
+                   type-filter))))
+;;(mtorus-element-type-filter->fun-preds '(ring buffer))
+
+(defun mtorus-element-obarray (&optional type-filter)
+  "Makes an obarray from `mtorus-elements'.
+Optional TYPE-FILTER limits this set to only certain types."
+  (let ((filt (mtorus-element-type-filter->fun-preds
+               type-filter))
+        (element-obarray (vector)))
+    (maphash #'(lambda (key val)
+                 (and (some #'(lambda (pred-fun)
+                                (funcall pred-fun val))
+                            filt)
+                      (setq element-obarray
+                            (vconcat element-obarray (vector key)))))
+           mtorus-elements)
+    element-obarray))
+;;(mtorus-element-obarray '(marker buffer))
+
+(defun mtorus-element-obarray+names (&optional type-filter)
+  "Makes an obarray from `mtorus-elements' returning the names of the elements.
+Optional TYPE-FILTER limits this set to only certain types."
+  (let ((eobarr (mtorus-element-obarray type-filter)))
+    (mapcar #'(lambda (elt)
+                (cons (format "%s (%s)" (mtorus-element-get-name elt) elt) elt))
+            eobarr)))
+;;(mtorus-element-obarray+names 'all)
+
 
 
 
 ;;; This is the initialization code for bootstrapping the mtorus-universe element
 ;; The mtorus-universe is an element of itself (see quine set theory)
-(defun mtorus-element-init ()
+(defun mtorus-element-initialize ()
   "Initializes mtorus-elements and bootstraps the mtorus-universe."
-  (mtorus-type-initialize)
+  (interactive)
+  (and (featurep 'mtorus-type)
+       (mtorus-type-initialize))
   (let ((mtorus-element-parse-unsupported-keywords t))
 
     ;; maybe it's better to retrieve in the following call just a
@@ -399,7 +495,7 @@ not (yet?) update rings that posess this element."
     (mtorus-element-register 'mtorus-universe)))
 ;;(mtorus-type-ring-p 'mtorus-universe)
 
-
+(mtorus-element-initialize)
 
 
 (provide 'mtorus-element)

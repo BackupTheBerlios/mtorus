@@ -1,3 +1,25 @@
+2004-08-01  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el:
+	- added alpha version interactive functions
+	- added more hooks for interactive calls
+
+	* mtorus-element.el
+	- added element action hooks 
+	(i.e. (pre|post)(creation|selection|deletion))
+	- added -after-load-hook
+
+	* mtorus-type.el
+	- added type methods (i.e. functions whose return
+	values are needed)
+	- added attaching code here (which is not that correct)
+	- modified predefined types
+	- added -after-load-hook
+
+	* mtorus-topology.el
+	- added directed and undirected neighborhoods
+
+
 2004-07-28  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-topology.el: mtorus topology and neighborhoods
