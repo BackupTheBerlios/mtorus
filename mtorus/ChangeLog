@@ -1,3 +1,20 @@
+2004-09-04  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-convert.el: add conversion of types
+
+
+2004-08-31  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* all files:
+	- remove some cruft due to old bouncer funs
+
+	* mtorus-topology.el: 
+	- add new order (mtorus-order-by-atime)
+
+	* mtorus-element.el: add element property :atime
+	which holds the last access time of the element
+
+
 2004-08-25  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus.el: 

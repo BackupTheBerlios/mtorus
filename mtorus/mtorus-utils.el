@@ -1,5 +1,5 @@
 ;;; mtorus-utils.el --- auxiliary stuff used
-;; $Id: mtorus-utils.el,v 1.7 2004/08/25 20:18:51 hroptatyr Exp $
+;; $Id: mtorus-utils.el,v 1.8 2004/09/04 02:37:32 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -137,7 +137,15 @@ and make the result a symbol."
                          sym)
                         (t nil)))
               symbols "-")))
-;;(mtorus-utils-symbol-conc 'a 'b 'c)
+(defun mtorus-utils-namespace-conc (&rest symbols)
+  "Concatenate SYMBOLS (which should be strings or symbols
+and make the result a symbol."
+  (intern
+   (format
+    "%s:%s"
+    (car symbols)
+    (apply #'mtorus-utils-symbol-conc (cdr symbols)))))
+;;(mtorus-utils-namespace-conc 'a 'b 'c)
 
 (defun mtorus-utils-plist-get (plist property &optional default)
   "Just like `plist-get'."
@@ -159,7 +167,7 @@ and make the result a symbol."
   "Parses SPEC for keyword KEY and returns its value."
   (cdr-safe (mtorus-utils-parse-key keyword spec default)))
 
-(defun mtorus-utils-parse-spec (spec &optional spec-keywords parse-unsupported)
+(defun mtorus-utils-parse-spec (spec &optional spec-keywords parse-unsupported default)
   "Parses SPEC and returns a list '((key . value) ...).
 The optional SPEC-KEYWORDS list ensures that any keyword from there
 will be in the result list."
@@ -171,7 +179,7 @@ will be in the result list."
          (mapcar #'(lambda (key)
                      (cond ((listp key)
                             (eval key))
-                           (t (mtorus-utils-parse-key key spec))))
+                           (t (mtorus-utils-parse-key key spec default))))
                  spec-keywords))))
 ;;(mtorus-utils-parse-spec '(:type a :nother b) '(:type :name))
 
@@ -204,7 +212,8 @@ will be in the result list."
   (cond ((keywordp list-elem)
          `',(funcall
              (mtorus-utils-symbol-conc prefix keyword-type+action)
-             list-elem prop-ht))
+             (mtorus-utils-keyword->symbol list-elem)
+             prop-ht))
         (t list-elem)))
 (defun mtorus-utils-keyword-type-replace-keyword 
   (prefix keyword-type+action list prop-ht)
@@ -241,7 +250,8 @@ will be in the result list."
              (cond ((functionp val)
                     (flet ((nval (test tes2)
                              (funcall val keyword test tes2)))
-                      (fset keyw-name val)))
+                      ;;(fset keyw-name val))
+                    ))
                    (t (error "Merely functions supported at the moment."))))))
          funs)
     (mapc
@@ -261,6 +271,7 @@ will be in the result list."
   (set-alist (mtorus-utils-symbol-conc prefix 'keyword-types) name specs)
   (let ((bouncer-name (mtorus-utils-symbol-conc 'define prefix name))
         (keywtype-list-fun-name (mtorus-utils-symbol-conc prefix name 'list))
+        (keywtype-pred-fun-name (mtorus-utils-symbol-conc prefix name 'p))
         (funs (mtorus-utils-parse-spec specs nil t)))
     (mapc
      #'(lambda (keyw-val)
@@ -290,6 +301,10 @@ will be in the result list."
           #'(lambda (keyw)
               (equal (mtorus-keyword-get-type ',prefix keyw) ',name))
           (mapcar #'car ,prefix)))
+       (defun ,keywtype-pred-fun-name (keyword)
+         ,(format "Returns non-nil iff KEYWORD is of keyword-type `%s-%s'." name prefix)
+         (member (mtorus-utils-symbol->keyword keyword)
+                 (funcall ',keywtype-list-fun-name)))
        ))
     `',bouncer-name))
 

@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.12 2004/08/25 20:18:51 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.13 2004/09/04 02:37:32 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.3 $Revision: 1.12 $"
+(defconst mtorus-element-version "Version: 0.3 $Revision: 1.13 $"
   "Version of mtorus-element backend.")
 
 
@@ -147,15 +147,13 @@ Note: This hook is run with given `element-specs' as argument."
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; next abstraction step would be to see elements just as another mtorus-type ;)
-
-
 
 
 ;;;
 ;;; Handlers for creation (note these are not interactive, use wrappers)
 ;;;
-(defcustom mtorus-element-generate-cookie-function 'mtorus-element-generate-cookie
+(defcustom mtorus-element-generate-cookie-function
+  'mtorus-element-generate-cookie
   "Function to be called when requesting element cookies.
 This should be a function returning a cookie symbol which
 in some way is (more or less) unique."
@@ -179,7 +177,7 @@ to avoid duplicate cookies.
 
 See also: `mtorus-element-generate-cookie-function'"
   (mtorus-utils-symbol-conc  'mtorus (or type 'element)
-                             (intern (format "%.8x" (random)))))
+                             (format "%.8x" (random))))
 ;;(mtorus-element-generate-cookie 'ring)
 
 
@@ -196,7 +194,14 @@ See also: `mtorus-element-generate-cookie-function'"
   (lambda (keyword el-property-ht value)
     (puthash keyword value el-property-ht)))
 
-(define-mtorus-keyword-type mtorus-element method)
+(define-mtorus-keyword-type mtorus-element method
+    :install
+  (lambda (keyword function)
+    "Installs mtorus-element-KEYWORD."
+    (let ((fun-name
+           (mtorus-utils-symbol-conc
+            'mtorus-element keyword)))
+      (fset fun-name function))))
 (define-mtorus-keyword-type mtorus-element hook)
 
 
@@ -209,14 +214,16 @@ See also: `mtorus-element-generate-cookie-function'"
 (define-mtorus-element-property :value)
 (define-mtorus-element-property :ctime
   :if-omitted (current-time))
+(define-mtorus-element-property :atime
+  :if-omitted (current-time))
 (define-mtorus-element-property :deletable
   :if-omitted t)
+;; (define-mtorus-element-property :order
+;;   :if-omitted mtorus-order-by-age)
 
-;; (define-mtorus-element-method : 'dunno)
-;; (define-mtorus-element-method :inherit-selection 'dunno)
-;; (define-mtorus-element-method :inherit-value 'dunno)
-;; (define-mtorus-element-method :alive-p 'dunno)
-
+(define-mtorus-element-method :predicate
+  :alias p)
+(define-mtorus-element-method :valid-p)
 
 
 
@@ -228,12 +235,16 @@ See also: `mtorus-element-generate-cookie-function'"
 ;;;
 
    ;;; until it's abstractly done by a define-element-method 
-(defun mtorus-element-p (element)
-  "Checks whether ELEMENT is an mtorus element."
-  (gethash element (eval mtorus-elements-hash-table)))
-(defun mtorus-element-valid-p (element)
-  "Checks whether ELEMENT is a registered mtorus element."
-  (gethash element (eval mtorus-elements-hash-table)))
+(mtorus-element-method-install
+ 'p
+ (lambda (element)
+   "Checks whether ELEMENT is an mtorus element."
+   (gethash element (eval mtorus-elements-hash-table))))
+(mtorus-element-method-install
+ 'valid-p
+ (lambda (element)
+   "Checks whether ELEMENT is a registered mtorus element."
+   (gethash element (eval mtorus-elements-hash-table))))
 
 
 (defun mtorus-element-get-property (property element &optional default)
@@ -452,23 +463,6 @@ not (yet?) update rings that posess this element."
 
 
 
-(defmacro mtorus-element-type-methods-bouncer ()
-  "Installs some useful mtorus-element-METHOD funs."
-  (mapc
-   #'(lambda (method)
-       (let ((method (mtorus-utils-keyword->symbol method)))
-         (eval
-          `(defun ,(mtorus-utils-symbol-conc 'mtorus-element method)
-            (element)
-            ,(format "Runs mtorus-type-%s under the correct type of ELEMENT."
-                     method)
-            (let ((fun (mtorus-utils-symbol-conc 'mtorus-type-invoke ',method)))
-              (funcall fun
-                       (mtorus-element-get-property 'type element) element))))))
-   (mtorus-type-method-list))
-  t)
-
-(mtorus-element-type-methods-bouncer)
 
 
 
@@ -516,7 +510,8 @@ This runs some hooks at the moment."
   (run-hook-with-args 'mtorus-element-pre-selection-hook element)
   (mtorus-type-run-pre-selection-funs (mtorus-element-get-property 'type element) element)
   (and (mtorus-element-alive-p element)
-       (mtorus-element-inherit-selection element))
+       (mtorus-element-inherit-selection element)
+       (mtorus-element-put-atime element (current-time)))
   (mtorus-type-run-post-selection-funs (mtorus-element-get-property 'type element) element)
   (run-hook-with-args 'mtorus-element-post-selection-hook element)
   element)
@@ -638,7 +633,6 @@ if a current ring cannot be determined."
        :symbol 'mtorus-universe
        :name "MTorus universe"
        :value (and (boundp 'mtorus-universe)) ;; (mtorus-element-get-value 'mtorus-universe))
-       ;;:order 'mtorus-order-by-name
        :description "This is the only pregenerated ring: The MTorus Universe"
        :variable-documentation "This is the MTorus Universe.\nDON'T FIDDLE WITH THIS."))))
 

@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.11 2004/08/13 08:47:16 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.12 2004/09/04 02:37:32 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.11 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.12 $"
   "Version of mtorus-topology backend.")
 
 
@@ -633,7 +633,8 @@ neighborhood type RELATION."
 Basically this is bad code and should be generalized somehow."
   (and (mtorus-type-ring-p ring)
        (progn
-         (mtorus-topology-standard-define-siblings-family ring 'mtorus-universe 'children)
+         (and (not (eq ring 'mtorus-universe))
+              (mtorus-topology-standard-define-siblings-family ring 'mtorus-universe 'children))
          (mtorus-topology-standard-define-siblings ring ring)
          (and (not (eq ring 'mtorus-universe))
               (mtorus-topology-standard-define-children 'mtorus-universe ring))
@@ -712,7 +713,8 @@ defines a fun which takes a neighborhood and returns an ordered neighborhood."
     by-name
     :predicate
     (lambda (el1 el2)
-      (string< (format "%s" el1) (format "%s" el2)))
+      (string< (mtorus-element-get-name el1)
+               (mtorus-element-get-name el2)))
     :order-fun
     'stable-sort)
 
@@ -724,12 +726,22 @@ defines a fun which takes a neighborhood and returns an ordered neighborhood."
        (mtorus-element-get-ctime el1 (current-time))
        (mtorus-element-get-ctime el2 (current-time))))
     :order-fun
+    'stable-sort)
+
+  (define-mtorus-order
+    by-atime
+    :predicate
+    (lambda (el1 el2)
+      (mtorus-utils-time-less-p
+       (mtorus-element-get-atime el2 (current-time))
+       (mtorus-element-get-atime el1 (current-time))))
+    :order-fun
     'stable-sort))
 
 (mtorus-order-initialize)
 
 (defcustom mtorus-default-order 'mtorus-order-by-age
-  "Order inherited to all newly created elements."
+  "*Order inherited to all newly created elements."
   :group 'mtorus-element)
 
 

@@ -1,5 +1,5 @@
 ;;; mtorus-display.el --- display functions of the mtorus
-;; $Id: mtorus-display.el,v 1.8 2004/08/25 20:18:51 hroptatyr Exp $
+;; $Id: mtorus-display.el,v 1.9 2004/09/04 02:37:32 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-display-version "Version: 0.1 $Revision: 1.8 $"
+(defconst mtorus-display-version "Version: 0.1 $Revision: 1.9 $"
   "Version of mtorus-display backend.")
 
 
@@ -470,7 +470,8 @@ shorten -- shorten the displayed element string"
          (parents  (mtorus-topology-standard-parents  mtorus-current-element))
          (siblings (mtorus-topology-standard-siblings mtorus-current-element))
          ;;(children (mtorus-topology-standard-children mtorus-current-element))
-         (siblsort (mtorus-order-by-age siblings))
+         (order-fun mtorus-default-order)
+         (siblsort (funcall order-fun siblings))
          ;;(chilsort (mtorus-order-by-age children))
 
          ;;; REVISE ME! ... this is hardcoded thus bad :)

@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.23 2004/08/25 20:18:51 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.24 2004/09/04 02:37:32 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.2 $Revision: 1.23 $"
+(defconst mtorus-version "2.2 $Revision: 1.24 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -53,18 +53,15 @@
 ;; EmacsWiki page:
 ;; http://www.emacswiki.org/wiki.pl?MTorus
 
-;;; ToDo:
-;;  - DELETION IS ONLY HALF WORKING ATM
-;;  - generic interface for special lists, because currently the
-;;    (only) special list (buffer list) behaviour is hard coded in a
-;;    way that's probably not sensible for lists like recent-files or
-;;    the like
-;;  - handling of invalid markers
-;;    -> (don't display, quietly discard?)
-;;    -> the correct while-loop which deletes invalid in
-;;    mtorus-jump-current-marker or mtorus-current-buffer
-;;    -> what happens when a buffer is reverted (or killed and
-;;    reopened)?
+;;; ToDo: (in planner syntax)
+;; A1  _ DELETION/DETACHMENT IS ONLY HALF WORKING ATM
+;; A2  _ type conversion
+;;       (convert 'buffer 'marker to 'file and vice versa)
+;; A3  _ bring back mtorus-1.6 special lists
+;; A4  _ handling of elements that are not alive-p anymore
+;;       (don't display/select, quietly discard?)
+;;       -> what happens when a buffer is reverted (or killed and
+;;          reopened)?
 
 ;;; Getting Started
 ;;  ===============
@@ -314,6 +311,12 @@ This is an ALPHA feature."
 (defcustom mtorus-auto-attach-p t
   "*Whether to use auto attaching.
 We will define later what this actually means."
+  :group 'mtorus)
+
+;; AutoWatch elements if you're on a buffer which is in the torus
+(defcustom mtorus-auto-watch-p nil
+  "*Whether to track current element according to the current (point)."
+  :type 'boolean
   :group 'mtorus)
 
 ;;; variable wrappers for dynamic induce behaviour
@@ -777,7 +780,7 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
            (make-mtorus-element
             :type type
             :name name
-            :value (mtorus-type-inherit-value type name)
+            :value (mtorus-type-invoke-inherit-value type name)
             :description "User defined mtorus-element"
             :variable-documentation
             (format "Manually generated mtorus element of type %s." type)))))
@@ -809,7 +812,7 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
             (mtorus-create-element ',type name))
           (defalias ',(mtorus-utils-symbol-conc 'mtorus-new type)
             ',(mtorus-utils-symbol-conc 'mtorus-create type)))))
-  types))
+   types))
 (mtorus-create-bouncer mtorus-types)
 
 
@@ -1069,6 +1072,7 @@ elements to only those of a certain type."
 
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; new generation navigation
 
@@ -1313,14 +1317,6 @@ This is done with respect to the current topology."
     newelt))
 
 
-(defun mtorus-select-current-element ()
-  "Select the current element (whatever this means).
-
-Selection can be done by:
-- Defining :inherit-selection in the type definition
-- ... <add more>"
-  (interactive)
-  (mtorus-select-element mtorus-current-element))
 (defun mtorus-select-element (element &optional type-filter)
   "Select an element (whatever this means).
 
@@ -1344,6 +1340,43 @@ Selection can be done by:
    :message '("selected: %s" element))
   element)
 
+(defun mtorus-select-current-element ()
+  "Select the current element (whatever this means).
+
+Selection can be done by:
+- Defining :inherit-selection in the type definition
+- ... <add more>"
+  (interactive)
+  (mtorus-select-element mtorus-current-element))
+
+
+(defun mtorus-change-order (order)
+  "Globally change the order of mtorus elements when displaying."
+  (interactive
+   (let* ((table (mapcar
+                  #'(lambda (order)
+                      (cons (format "mtorus-order-%s" order)
+                            (mtorus-utils-symbol-conc
+                             'mtorus-order order)))
+                  mtorus-orders))
+          (curorder mtorus-default-order)
+          (order (or
+                  (cdr
+                   (assoc
+                    (completing-read
+                     (format "Order (%s): "
+                             curorder)
+                     table nil t)
+                    table))
+                  curorder)))
+     (list order)))
+  (setq mtorus-default-order order)
+  (mtorus-display-message
+   message
+   :element mtorus-current-element
+   :message '("still current: %s" element)))
+
+
 
 
 (defun mtorus-install-mtorus16-names ()
@@ -1359,59 +1392,6 @@ Selection can be done by:
 
 
 
-;; ;; old 1.6
-;; (defun mtorus-jump-current-marker ()
-;;   "Move point to the point and buffer defined by current marker."
-;;   (interactive)
-;;   (let ((buf (mtorus-current-buffer))
-;;         (pos (mtorus-current-pos)))
-;;     (if (buffer-live-p buf)
-;;         (progn
-;;           (switch-to-buffer buf)
-;;           (goto-char pos)
-;;           (mtorus-notify))
-;;       (mtorus-message (format "no such buffer %s"
-;;                               (buffer-name buf)))
-;;       (mtorus-delete-current-marker))))
-;; ;(defun mtorus-delete-marker ()
-;; ;  "Delete the current marker from the current ring."
-;; ;  (interactive)
-;; ;  (if (not (mtorus-special-ringp
-;; ;            (mtorus-current-ring-name)))
-;; ;      (let ((ring (mtorus-current-ring)))
-;; ;        (set-marker (mtorus-current-marker) nil)
-;; ;        (setf (second ring)
-;; ;              (cdr (second (mtorus-current-ring)))))
-;; ;    (mtorus-message "can't delete from special rings")))
-;; 
-;; ;(defun mtorus-update-current-marker ()
-;; ;  "Make the current marker point to the current position.
-;; ;Actually the current marker is deleted and a new one is created at the
-;; ;current position."
-;; ;  (interactive)
-;; ;  (and (mtorus-delete-marker)
-;; ;       (mtorus-new-marker)))
-;; 
-;; ;; FIXME: can the actual rotation be done by one backend function for
-;; ;; this and for mtorus-rotate-rings?
-;; (defun mtorus-rotate-entries (nth-ring amount)
-;;   "Rotate the NTH-RING AMOUNT times."
-;;   (let* ((ring (mtorus-ring-by-name
-;;                 (mtorus-nth-ring-name nth-ring)))
-;;          (rlist (second ring)))
-;;     (if (> amount 0)
-;;         (while (> amount 0)
-;;           (setq rlist
-;;                 (append (cdr rlist)
-;;                         (list (car rlist))))
-;;           (setq amount (1- amount)))
-;;       (while (< amount 0)
-;;         (setq rlist
-;;               (append (last rlist)
-;;                       (butlast rlist)))
-;;         (setq amount (1+ amount))))
-;;     (setf (second ring) rlist)))
-;;     
 ;; ;; Special Ring: The Buffer List
 ;; (defun mtorus-blist-next ()
 ;;   "Cycle the real buffer list.
@@ -1455,44 +1435,6 @@ Selection can be done by:
 
 
 
-;; Backend Level Functions
-;; (defun mtorus-initial-ring-contents (ring-name)
-;;   "Return a list to initialize RING-NAME with.
-;; Takes care of special ring names"
-;;   (list 
-;;    (cond
-;;     ((mtorus-special-ringp ring-name)
-;;      (concat "special: "
-;;              ring-name))
-;;     ((not mtorus-init-ring-emtpy)
-;;      (point-marker))
-;;     (t
-;;      ()))))
-;; 
-;; (defun mtorus-ask-ring ()
-;;   "Ask the user to choose a ring (with completion)."
-;;   (let ((default (mtorus-current-ring-name)))
-;;     (completing-read
-;;      (format "choose a ring (%s): " default)
-;;      mtorus-torus
-;;      nil t nil nil
-;;      default)))
-;; 
-;; (defun mtorus-rotate-rings (amount)
-;;   "Rotate the rings on the torus AMOUNT times."
-;;   (if (> amount 0)
-;;       (while (> amount 0)
-;;         (setq mtorus-torus
-;;               (append (cdr mtorus-torus)
-;;                       (list (car mtorus-torus))))
-;;         (setq amount (1- amount)))
-;;     (while (< amount 0)
-;;       (setq mtorus-torus
-;;             (append (last mtorus-torus)
-;;                     (butlast (car mtorus-torus))))
-;;       (setq amount (1+ amount)))))
-
-
 
 ;; (defun mtorus-maybe-install-kill-hook ()
 ;;   "Install some functions on the `kill-emacs-hook' according to custom
