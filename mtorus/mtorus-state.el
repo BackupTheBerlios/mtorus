@@ -1,5 +1,5 @@
 ;;; mtorus-state.el --- state functions of the mtorus
-;; $Id: mtorus-state.el,v 1.7 2004/09/25 16:24:34 hroptatyr Exp $
+;; $Id: mtorus-state.el,v 1.8 2004/11/24 16:32:55 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -51,7 +51,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-state-version "Version: 0.1 $Revision: 1.7 $"
+(defconst mtorus-state-version "Version: 0.1 $Revision: 1.8 $"
   "Version of mtorus-state backend.
 CONSIDER THIS ALPHA AT THE MOMENT!")
 
@@ -160,7 +160,7 @@ If omitted the value of `mtorus-state-file' is used."
         (list
          (setq mtorus-state-file
                (read-file-name
-                "MTorus state file: ")))))
+                "MTorus state file: " (eval mtorus-state-file))))))
 
   ;; first we dump all elements
   (let (;;(tempbuf (get-buffer-create "*MTorus Dump*"))
@@ -215,7 +215,7 @@ If omitted the value of `mtorus-state-file' is used."
         (list
          (setq mtorus-state-file
                (read-file-name
-                "MTorus state file: " nil nil t)))))
+                "MTorus state file: " (eval mtorus-state-file) nil t)))))
 
   (let ((state-file (or state-file
                         (eval mtorus-state-file)))

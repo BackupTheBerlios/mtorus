@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.30 2004/09/15 23:34:24 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.31 2004/11/24 16:32:55 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.2 $Revision: 1.30 $"
+(defconst mtorus-version "2.2 $Revision: 1.31 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -755,7 +755,9 @@ The auto-rings will be set up by running
   '((ring . "")
     (buffer . #'buffer-name)
     (marker . (format "%s#%s" (buffer-name) (point)))
-    (file . ""))
+    (file . (let ((bfn (buffer-file-name)))
+              (and bfn
+                   (file-name-nondirectory bfn)))))
   "*Names used as defaults when creating elements.
 This is an alist of \(type . default-name-function-or-string\)."
   :group 'mtorus)
@@ -792,11 +794,13 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
             (completing-read
              "Type: "
              (mtorus-type-obarray) nil t)))
+          (default-name
+            (mtorus-default-name type))
           (name
            (read-string
-            (format "Name (%s): " (mtorus-default-name type))
+            (format "Name (%s): " default-name)
             nil 'mtorus-read-string-history
-            (mtorus-default-name type))))
+            default-name)))
      (list type name)))
   (run-hook-with-args 'mtorus-create-element-pre-hook type name)
   (let ((element

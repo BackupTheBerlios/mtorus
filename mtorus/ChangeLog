@@ -1,3 +1,9 @@
+2004-11-24  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el (mtorus-creation-default-names): fix, 
+	change defaults for file-type
+
+
 2004-09-25  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-type.el: added fix for type 'file when handling
