@@ -1,3 +1,19 @@
+2004-09-14  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-type.el: Add method resurrection of dead
+	elements
+
+	* mtorus-convert.el: Add some fix to mal-forms that may
+	occur during converting by ignore-errors macro
+
+	* mtorus-state.el:
+	- Make mtorus-state-file accept forms to be eval'd at run time
+	- Add mtorus-state-ask-for-state-file variable to determine
+	if a state filename is read from user
+	- Add prefix argument to mtorus-state-save/load to force
+	prompting for a filename
+
+
 2004-09-13  Stefan Kamphausen  <mail@skamphausen.de>
 
 	* mtorus-state.el: Added customized filename to save state in.

@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.11 2004/09/10 21:50:38 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.12 2004/09/14 19:06:45 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,7 +53,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.11 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.12 $"
   "Version of mtorus-type backend.")
 
 
@@ -526,8 +526,10 @@ Optional TYPE-FILTER limits this set to only certain types."
                 (mtorus-utils-plist-get res-data ':buffer-file-name)))
            (mtorus-element-put-property
             'value element
-            (cond ((get-buffer buffer-name))
-                  ((file-readable-p buffer-filename)
+            (cond ((and buffer-name
+                        (get-buffer buffer-name)))
+                  ((and buffer-filename
+                        (file-readable-p buffer-filename))
                    (find-file buffer-filename))))))))
 
     :alive-p
@@ -600,11 +602,13 @@ Optional TYPE-FILTER limits this set to only certain types."
                 (mtorus-utils-plist-get res-data ':buffer-point)))
            (mtorus-element-put-property
             'value element
-            (cond ((get-buffer buffer-name)
+            (cond ((and buffer-name
+                        (get-buffer buffer-name))
                    (set-marker (make-marker)
                                buffer-point
                                buffer-name))
-                  ((file-readable-p buffer-filename)
+                  ((and buffer-filename
+                        (file-readable-p buffer-filename))
                    (set-marker (make-marker)
                                buffer-point
                                (find-file buffer-filename)))))))))

@@ -1,5 +1,5 @@
 ;;; mtorus-state.el --- state functions of the mtorus
-;; $Id: mtorus-state.el,v 1.4 2004/09/13 07:04:17 ska Exp $
+;; $Id: mtorus-state.el,v 1.5 2004/09/14 19:06:45 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -31,7 +31,7 @@
 ;; - read a complete torus from a file
 
 ;; *** ToDo:
-
+;; - Topology is not always restored correctly
 
 ;;; History
 
@@ -50,14 +50,23 @@
   :prefix "mtorus-state-"
   :group 'mtorus)
 
+
+(defconst mtorus-state-version "Version: 0.1 $Revision: 1.5 $"
+  "Version of mtorus-state backend.
+CONSIDER THIS ALPHA AT THE MOMENT!")
+
+
+(defcustom mtorus-state-ask-for-state-file nil
+  "*Whether to ask to specify a state file."
+  :group 'mtorus-state
+  :type 'boolean)
+
 (defcustom mtorus-state-file "~/.mtorus.dump"
-  "The filename where the state of the mtorus-universe will be dumped."
+  "*The filename where the state of the mtorus-universe will be dumped.
+This can also be a form which is evaluated and should result to a
+file name string."
   :type 'file
   :group 'mtorus-state)
-
-(defconst mtorus-state-version "Version: 0.1 $Revision: 1.4 $"
-  "Version of mtorus-state backend.
-THIS IS NOT WORKING AT THE MOMENT!")
 
 
 
@@ -82,7 +91,8 @@ THIS IS NOT WORKING AT THE MOMENT!")
                        (append
                         spec
                         (list keyw
-                              `(plist-get prop::value ',keyw)))))
+                              `(mtorus-utils-plist-get
+                                prop::value ',keyw)))))
              (mtorus-type-convert-list))
        spec)
    :type 'dump
@@ -100,6 +110,8 @@ THIS IS NOT WORKING AT THE MOMENT!")
 
 
 ;;(mtorus-type-convert-to 'dump (gethash mtorus-current-element mtorus-elements))
+;;(mtorus-type-convert-from (gethash mtorus-current-element mtorus-elements))
+
 
 
 (defun mtorus-state-object-dumpable-p (object)
@@ -121,16 +133,24 @@ THIS IS NOT WORKING AT THE MOMENT!")
                  (append result (list key val)))))
     result))
 
-(defun mtorus-state-save ()
-  "Saves current mtorus to a dump buffer."
-  (interactive)
+(defun mtorus-state-save (&optional state-file)
+  "Saves current mtorus to STATE-FILE.
+If omitted the value of `mtorus-state-file' is used."
+  (interactive
+   (and (or mtorus-state-ask-for-state-file
+            current-prefix-arg)
+        (list
+         (read-file-name
+          "MTorus state file: "))))
 
   ;; first we dump all elements
   (let ((tempbuf (get-buffer-create "*MTorus Dump*"))
-;;        (dump-ht (make-hash-table :test 'equal))
-        )
+        (state-file (or state-file
+                        (eval mtorus-state-file))))
     (erase-buffer tempbuf)
     (with-current-buffer tempbuf
+
+      ;; the elements themselves
       (maphash
        #'(lambda (elem el-prop-ht)
            (insert
@@ -146,8 +166,10 @@ THIS IS NOT WORKING AT THE MOMENT!")
                  ,@(mtorus-element-property-get
                     'value
                     (mtorus-type-convert-to 'dump el-prop-ht))))
-             " "))))
+              " "))))
        (eval mtorus-elements-hash-table))
+
+      ;; now the topology
       (mapc #'(lambda (nh)
                 (maphash #'(lambda (key val)
                              (maphash
@@ -157,56 +179,63 @@ THIS IS NOT WORKING AT THE MOMENT!")
                          (eval (mtorus-utils-symbol-conc
                                 'mtorus-topology-standard nh))))
             mtorus-topology-standard-neighborhoods)
-      (write-region (point-min) (point-max) mtorus-state-file))
-    tempbuf)
-
-  ;; now the topology
-  )
-
-;;(mtorus-state-save)
-
-
-;;(format "%S" (current-buffer))
+      (write-region (point-min) (point-max) state-file))
+    (message "MTorus state dumped to %s" state-file)
+    state-file))
 
 
 
-(defun mtorus-state-load ()
-  ""
-  (interactive)
-  (with-temp-buffer 
-    (erase-buffer)
-    (insert-file-contents mtorus-state-file)
-    (goto-char (point-min)) (insert "(\n")
-    (goto-char (point-max)) (insert "\n)")
-    (goto-char (point-min))
-    (setq records (read (current-buffer))))
-  (mapc
-   #'(lambda (state-vec)
-       (cond
-        ((listp state-vec)
-         (let ((symbol
-                (mtorus-utils-plist-get state-vec ':symbol))
-               (type
-                (mtorus-utils-plist-get state-vec ':type)))
-           (cond
-            ((not (eq symbol 'mtorus-universe))
-             (mtorus-element-register
-              symbol 
-              (mtorus-type-convert-to
-               type
-               (make-mtorus-element
-                :type 'dump
-                :symbol symbol
-                :name (mtorus-utils-plist-get state-vec ':element-name)
-                :value (cddddr state-vec)
-                :resurrection-data (cddddr state-vec)
-                :description "Restored from dump.")))))))
-        ((vectorp state-vec)
-         (mtorus-topology-standard-define-relation
-          (aref state-vec 0) (aref state-vec 1) (aref state-vec 2)))))
-       records)
-  )
 
+(defun mtorus-state-load (&optional state-file)
+  "Restores a dumped mtorus from STATE-FILE.
+If omitted the value of `mtorus-state-file' is used."
+  (interactive
+   (and (or mtorus-state-ask-for-state-file
+            current-prefix-arg)
+        (list
+         (read-file-name
+          "MTorus state file: " nil nil t))))
+
+  (let ((state-file (or state-file
+                        (eval mtorus-state-file)))
+        records)
+    (with-temp-buffer 
+      (erase-buffer)
+      (insert-file-contents state-file)
+      (goto-char (point-min)) (insert "(\n")
+      (goto-char (point-max)) (insert "\n)")
+      (goto-char (point-min))
+      (setq records (read (current-buffer))))
+    (mapc
+     #'(lambda (state-vec)
+         (cond
+          ((listp state-vec)
+           (let ((symbol
+                  (mtorus-utils-plist-get state-vec ':symbol))
+                 (type
+                  (mtorus-utils-plist-get state-vec ':type)))
+             (cond
+              ((not (eq symbol 'mtorus-universe))
+               (mtorus-element-register
+                symbol 
+                (mtorus-type-convert-to
+                 type
+                 (make-mtorus-element
+                  :type 'dump
+                  :symbol symbol
+                  :name (mtorus-utils-plist-get state-vec ':element-name)
+                  :value (cddddr state-vec)
+                  :resurrection-data (cddddr state-vec)
+                  :description "Restored from dump.")))))))
+          ((vectorp state-vec)
+           (mtorus-topology-standard-define-relation
+            (aref state-vec 0) (aref state-vec 1) (aref state-vec 2)))))
+     records))
+  (message "Dumped torus state loaded.")
+  state-file)
+
+
+(run-hooks 'mtorus-state-after-load-hook)
 
 (provide 'mtorus-state)
 

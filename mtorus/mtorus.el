@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.27 2004/09/13 07:04:39 ska Exp $
+;; $Id: mtorus.el,v 1.28 2004/09/14 19:06:45 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.2 $Revision: 1.27 $"
+(defconst mtorus-version "2.2 $Revision: 1.28 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -54,19 +54,11 @@
 ;; http://www.emacswiki.org/wiki.pl?MTorus
 
 ;;; ToDo: (in planner syntax)
-;; #A1  _ manage currying for keyword definition (2004.09.05)
-;; #A2  _ write docs (2004.09.05)
-;; #A3  _ DELETION/DETACHMENT IS ONLY HALF WORKING ATM
-;; #A4  _ bring back mtorus-1.6 special lists
-;; #A5  _ handling of elements that are not alive-p anymore (don't
-;;        display/select, quietly discard?) -> what happens when a buffer is
-;;        reverted (or killed and reopened)?
-;; #A6  _ make current-element/ring frame/window-local
-;; #A7  X fscking bring torii to work >8| (2004.07.30)
-;; #A8  X find some way to inherit topos/orders throughout all elements 
-;;        (2004.08.20)
-;; #A9  X Impl mtorus type 'file (2004.08.26)
-;; #A10 X type conversion (convert 'buffer 'marker to 'file and vice versa)
+;; #A1  _ manage currying for keyword definition (2004.09.14)
+;; #A2  _ write docs (2004.09.14)
+;; #A3  _ bring back mtorus-1.6 special lists (2004.09.14)
+;; #A4  _ make current-element/ring frame/window-local (2004.09.14)
+;; #A5  _ mtorus-state doesnt restore topology correctly (2004.09.14)
 
 ;;; Getting Started
 ;;  ===============

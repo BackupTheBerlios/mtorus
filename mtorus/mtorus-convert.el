@@ -1,5 +1,5 @@
 ;;; mtorus-convert.el --- type converters for mtorus
-;; $Id: mtorus-convert.el,v 1.3 2004/09/09 23:18:22 hroptatyr Exp $
+;; $Id: mtorus-convert.el,v 1.4 2004/09/14 19:06:44 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -52,7 +52,7 @@
   :group 'mtorus-type)
 
 
-(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-convert backend.")
 
 
@@ -157,9 +157,10 @@ Do not fiddle with it.")
                     (let* ((keyw (car conv-prop))
                            (cfun (cdr conv-prop))
                            (conv-val
-                            (funcall (mtorus-type-convert-induce
-                                      keyw cfun)
-                                     el-prop-ht)))
+                            (ignore-errors
+                              (funcall (mtorus-type-convert-induce
+                                        keyw cfun)
+                                       el-prop-ht))))
                       (mtorus-type-convert-puthash
                        keyw conv-val conv-prop-ht)))
                 ',(mtorus-utils-parse-spec
@@ -174,9 +175,10 @@ Do not fiddle with it.")
                     (let* ((keyw (car conv-prop))
                            (cfun (cdr conv-prop))
                            (prop-val
-                            (funcall (mtorus-type-convert-deduce
-                                      keyw cfun)
-                                     conv-prop-ht)))
+                            (ignore-errors
+                              (funcall (mtorus-type-convert-deduce
+                                        keyw cfun)
+                                       conv-prop-ht))))
                       (unless (eq prop-val 'n/a)
                         (mtorus-element-property-put
                          keyw new-prop-ht prop-val))))
