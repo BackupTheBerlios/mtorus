@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.1 2004/07/28 01:44:24 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.2 2004/07/28 23:13:57 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -29,8 +29,10 @@
 ;;
 
 ;; *** ToDo:
-;; - <add some> ;)
-
+;; - type initialization shouldn't be predefined with topology neighborhood
+;;   registration
+;;   instead there should be user customizable auto-attach settings,
+;;   what you see in `mtorus-type-initialize' is just a demonstration
 
 ;;; History
 
@@ -38,6 +40,7 @@
 ;;; Code:
 
 (require 'mtorus-utils)
+(require 'mtorus-topology) ;; just for the moment (see initialize code)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -50,7 +53,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.1 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.2 $"
   "Version of mtorus-type backend.")
 
 
@@ -256,9 +259,13 @@ the according values in PROPERTIES."
       ;; first of all we set the `current ring'
       (setq mtorus-current-ring element)
 
-      ;; here should follow code to register the element with respect
+      ;; here follows code to register the element with respect
       ;; to the currently defined topology to the universe
-      ;;(mtorus-topology- (eval mtorus-default-topology))
+      (when (mtorus-topology-p 'standard)
+        (mtorus-topology-standard-define-children 'mtorus-universe
+                                                  element)
+        (mtorus-topology-standard-define-parents element
+                                                 'mtorus-universe))
       ;;; this isnt the way to do it!
       ;;; rather add a bouncer mtorus-topology-insinuate-with-type or so
       )
@@ -275,9 +282,13 @@ the according values in PROPERTIES."
       ;; this is old style binding the element to a father
       (add-to-list mtorus-current-ring element)
 
-      ;; here should follow code to register the element with respect
+      ;; here follows code to register the element with respect
       ;; to the currently defined topology to the `current ring'
-      ;;(mtorus-topology- (eval mtorus-default-topology))
+      (when (mtorus-topology-p 'standard)
+        (mtorus-topology-standard-define-children mtorus-current-ring
+                                                  element)
+        (mtorus-topology-standard-define-parents element
+                                                 mtorus-current-ring))
       ;;; this isnt the way to do it!
       ;;; rather add a bouncer mtorus-topology-insinuate-with-type or so
       ))
@@ -293,10 +304,19 @@ the according values in PROPERTIES."
 
       ;; here should follow code to register the element with respect
       ;; to the currently defined topology to the `current ring'
-      ;;(mtorus-topology- (eval mtorus-default-topology))
+      (when (mtorus-topology-p 'standard)
+        (mtorus-topology-standard-define-children mtorus-current-ring
+                                                  element)
+        (mtorus-topology-standard-define-parents element
+                                                 mtorus-current-ring))
       ;;; this isnt the way to do it!
       ;;; rather add a bouncer mtorus-topology-insinuate-with-type or so
-      )))
+      ))
+
+  ;; furthermore there should be some usre customization here,
+  ;; im talking about mtorus-type-auto-register-at-topology-p or something
+  ;; see ToDo
+  )
 
 (mtorus-type-initialize)
 

@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.1 2004/07/28 01:44:24 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.2 2004/07/28 23:13:57 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.1 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.2 $"
   "Version of mtorus-topology backend.")
 
 
@@ -133,34 +133,113 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
           (mtorus-utils-symbol-conc topology-name 'neighborhoods))
          (topology-neighborhoods
           (cdr-safe (mtorus-utils-parse-key :neighborhoods properties))))
-    (eval
-     `(defvar ,topology-name (make-hash-table :test 'equal)
-       ,(format "MTorus topology.")))
-    (eval
-     `(defvar ,topology-neighborhoods-name topology-neighborhoods
-       ,(format "MTorus topology.\nValue indicates registered neighborhoods")))
-    (eval
-     `(defmacro
-       ,(mtorus-utils-symbol-conc topology-name 'add-neighborhood)
-       (name predicate)
-       ,(format "Define and add the neighborhood function NAME to %s"
-                topology-name)
-       (let ((neighborhood-name
-              (mtorus-utils-symbol-conc ',topology-name name)))
-         (eval
-          ,(list
-            'backquote
-            `(defun ,'(\, neighborhood-name) (element)
-              ,(format "MTorus neighborhood in %s"
-                       topology-name)
-              (let ((neighbors (gethash element ,topology-name)))
-                (if neighbors
-                    (eval ,'(\, predicate))
-                  element)))))
-         `',neighborhood-name)))
+    (mapc
+     #'eval
+     `((defvar ,topology-name (make-hash-table :test 'equal)
+         ,(format "MTorus topology."))
+       (defvar ,topology-neighborhoods-name topology-neighborhoods
+         ,(format "MTorus topology.\nValue indicates registered neighborhoods"))
+
+       ;;; this is the define-mtorus-topology-<TOPO>-neighborhood macro
+       (defmacro
+         ,(mtorus-utils-symbol-conc 'define topology-name 'neighborhood)
+         (name &rest properties)
+         ,(format "Define and add the neighborhood function NAME to %s"
+                  topology-name)
+         (let ((neighborhood-name
+                (mtorus-utils-symbol-conc ',topology-name name))
+               (def-nh-relation-name
+                 (mtorus-utils-symbol-conc ',topology-name 'define name))
+               (undef-nh-relation-name
+                (mtorus-utils-symbol-conc ',topology-name 'undefine name))
+               (undirected-relation-p
+                (or (mtorus-utils-parse-key-cdr ':undirected properties)
+                    (not (mtorus-utils-parse-key-cdr ':directed properties t)))))
+           (mapc
+            #'eval
+            ,(list
+              'backquote
+              `((defvar ,'(\, neighborhood-name) (make-hash-table :test 'equal)
+                  ,(format "MTorus neighborhood."))
+                (defun ,'(\, def-nh-relation-name) (element1 element2)
+                  ,(list
+                    '\,
+                    `(format
+                      "Defines a %s relation (%s) between ELEMENT1 and ELEMENT2 in %s"
+                      name
+                      (if undirected-relation-p
+                          "undirected"
+                        "directed")
+                      ',topology-name))
+                  (let ((neighbors (or (gethash element1 ,'(\, neighborhood-name))
+                                       (puthash element1
+                                                (make-hash-table :test 'equal)
+                                                ,'(\, neighborhood-name))))
+                        (neighbors-rev (and
+                                        ,'(\, undirected-relation-p)
+                                        (or (gethash element2
+                                                     ,'(\, neighborhood-name))
+                                            (puthash element2
+                                                     (make-hash-table :test 'equal)
+                                                     ,'(\, neighborhood-name))))))
+                    (and ,'(\, undirected-relation-p)
+                         (puthash element1 ','(\, name) neighbors-rev))
+                    (puthash element2 ','(\, name) neighbors)))
+                (defun ,'(\, undef-nh-relation-name) (element1 element2)
+                  ,(list
+                    '\,
+                    `(format
+                      "Deletes a %s relation (%s) between ELEMENT1 and ELEMENT2 in %s"
+                      name 
+                      (if undirected-relation-p
+                          "undirected"
+                        "directed")
+                      ',topology-name))
+                  (let ((neighbors (or (gethash element1
+                                                ,'(\, neighborhood-name))
+                                       (puthash element1
+                                                (make-hash-table :test 'equal)
+                                                ,'(\, neighborhood-name))))
+                        (neighbors-rev (and
+                                        ,'(\, undirected-relation-p)
+                                        (or (gethash element2
+                                                     ,'(\, neighborhood-name))
+                                            (puthash element2
+                                                     (make-hash-table :test 'equal)
+                                                     ,'(\, neighborhood-name))))))
+                    (and ,'(\, undirected-relation-p)
+                         (remhash element1 neighbors-rev))
+                    (remhash element2 neighbors)))
+                (defun ,'(\, neighborhood-name) (element)
+                  ,(format "MTorus neighborhood in %s"
+                           topology-name)
+                  (let ((neighbors (gethash element ,'(\, neighborhood-name))))
+                    (and neighbors
+                         ,'(\,
+                            (cdr-safe
+                             (mtorus-utils-parse-key ':filter properties)))))))))
+           `',neighborhood-name))
+       (defalias ',(mtorus-utils-symbol-conc topology-name 'define name)
+         ',(mtorus-utils-symbol-conc 'define topology-name 'neighborhood))))
     `',(mtorus-utils-symbol-conc topology-name)))
 (defalias 'mtorus-define-topology 'define-mtorus-topology)
 (defalias 'mtorus-topology-define 'define-mtorus-topology)
+  ;;; TODO: add some check if the elements passed to the funs are really registered
+
+
+
+(defun mtorus-topology-p (topology)
+  "Checks if TOPOLOGY is a valid mtorus-topology."
+  (or (when (member topology mtorus-topologies)
+        t)
+      (when (member
+             topology
+             (mapcar #'(lambda (top)
+                         (mtorus-utils-symbol-conc
+                          'mtorus-topology top))
+                     mtorus-topologies))
+        t)))
+;;(mtorus-topology-p 'mtorus-topology-standard)
 
 
 
@@ -182,22 +261,40 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
 
   (mapc #'(lambda (neighborhood)
             (eval
-             `(mtorus-topology-standard-add-neighborhood
+             `(define-mtorus-topology-standard-neighborhood
                ,neighborhood
+               :undirected t
+               :filter
                (let (,neighborhood)
                  (maphash #'(lambda (neighbor relation)
                               (and (eq relation ',neighborhood)
                                    (add-to-list ',neighborhood neighbor)))
                           neighbors)
                  ,neighborhood))))
-        '(siblings parents children)))
+        '(siblings))
+  (mapc #'(lambda (neighborhood)
+            (eval
+             `(define-mtorus-topology-standard-neighborhood
+               ,neighborhood
+               :undirected nil
+               :filter
+               (let (,neighborhood)
+                 (maphash #'(lambda (neighbor relation)
+                              (and (eq relation ',neighborhood)
+                                   (add-to-list ',neighborhood neighbor)))
+                          neighbors)
+                 ,neighborhood))))
+        '(parents children)))
 
 (mtorus-topology-initialize)
+
 
 
 (defcustom mtorus-default-topology 'mtorus-topology-standard
   "Topology inherited to all newly created elements."
   :group 'mtorus-element)
+
+
 
 
 

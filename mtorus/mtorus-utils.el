@@ -1,5 +1,5 @@
 ;;; mtorus-utils.el --- auxiliary stuff used
-;; $Id: mtorus-utils.el,v 1.1 2004/07/28 01:44:24 hroptatyr Exp $
+;; $Id: mtorus-utils.el,v 1.2 2004/07/28 23:13:58 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -77,6 +77,10 @@ and make the result a symbol."
                 (mtorus-utils-symbol->keyword keyword))
                (t nil))))
     (mtorus-utils-keyval->cons keyword (plist-get spec keyword default))))
+(defun mtorus-utils-parse-key-cdr (keyword spec &optional default)
+  "Parses SPEC for keyword KEY and returns its value."
+  (cdr-safe (mtorus-utils-parse-key keyword spec default)))
+
 (defun mtorus-utils-parse-spec (spec &optional spec-keywords parse-unsupported)
   "Parses SPEC and returns a list '((key . value) ...).
 The optional SPEC-KEYWORDS list ensures that any keyword from there

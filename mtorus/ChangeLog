@@ -1,5 +1,16 @@
 2004-07-28  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
+	* mtorus-topology.el: mtorus topology and neighborhoods
+	just work fine, thus state is beta
+
+	* mtorus-type.el: added auto-attach-to-topology in
+	mtorus-type-initialize (just a demonstration)
+
+	* mtorus-utils.el: (mtorus-utils-parse-key-cdr) added
+
+
+2004-07-28  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
 	* mtorus-element.el: stripped foreign definitions from file
 
 	* mtorus-topology.el: mtorus topology definitions
