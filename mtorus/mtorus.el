@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.26 2004/09/10 21:50:38 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.27 2004/09/13 07:04:39 ska Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.2 $Revision: 1.26 $"
+(defconst mtorus-version "2.2 $Revision: 1.27 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -389,10 +389,10 @@ Special care for CUA users is taken."
   ;;; old 1.6, but compatible
   (cond
    ((featurep 'cua) ;; FIXME how to detect?
-    (global-set-key '[(f10)]         'mtorus-next-element)
-    (global-set-key '[(f9)]          'mtorus-prev-element)
-    (global-set-key '[(shift f10)]   'mtorus-parent-element)
-    (global-set-key '[(shift f9)]    'mtorus-child-element))
+    (global-set-key '[(f10)]         'mtorus-nephew-element)
+    (global-set-key '[(f9)]          'mtorus-niece-element)
+    (global-set-key '[(shift f10)]   'mtorus-uncle-element)
+    (global-set-key '[(shift f9)]    'mtorus-aunt-element))
    (t
     (global-set-key '[(shift right)] 'mtorus-nephew-element)
     (global-set-key '[(shift left)]  'mtorus-niece-element)
@@ -1477,5 +1477,5 @@ Selection can be done by:
 
 ;; Local variables:
 ;; adaptive-fill-mode: t
-;; adaptive-fill-regexp: "[ 	]*\\([#;>*]+ +\\)?\\(?:#?[ABCD0-9] +[_X] +?\\)?"
+;; adaptive-fill-regexp: "[     ]*\\([#;>*]+ +\\)?\\(?:#?[ABCD0-9] +[_X] +?\\)?"
 ;; End:
