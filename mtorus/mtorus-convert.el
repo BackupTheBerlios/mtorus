@@ -1,5 +1,5 @@
 ;;; mtorus-convert.el --- type converters for mtorus
-;; $Id: mtorus-convert.el,v 1.4 2004/09/14 19:06:44 hroptatyr Exp $
+;; $Id: mtorus-convert.el,v 1.5 2004/09/25 16:24:34 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -52,7 +52,7 @@
   :group 'mtorus-type)
 
 
-(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.4 $"
+(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.5 $"
   "Version of mtorus-convert backend.")
 
 
@@ -272,11 +272,20 @@ Do not fiddle with it.")
     )
   (define-mtorus-convert buffer
     :buffer prop::value
-    :buffer-name (buffer-name prop::value)
-    :buffer-file-name (buffer-file-name prop::value)
-    :buffer-point (with-current-buffer prop::value
-                    (point))
-    :element-name (buffer-name prop::value)
+    :buffer-name (or (buffer-name prop::value)
+                     (mtorus-utils-plist-get
+                      :buffer-name prop::resurrection-data))
+    :buffer-file-name (cond ((not (string= (buffer-file-name prop::value) " *temp*"))
+                             (buffer-file-name prop::value))
+                          (t (mtorus-utils-plist-get
+                              :buffer-file-name prop::resurrection-data)))
+    :buffer-point (or (with-current-buffer prop::value
+                        (point))
+                      (mtorus-utils-plist-get
+                       :buffer-point prop::resurrection-data))
+    :element-name (or (buffer-name prop::value)
+                      (mtorus-utils-plist-get
+                       :buffer-name prop::resurrection-data))
     :type 'buffer
     :value conv::buffer
     )

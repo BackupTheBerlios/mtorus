@@ -1,5 +1,5 @@
 ;;; mtorus-state.el --- state functions of the mtorus
-;; $Id: mtorus-state.el,v 1.6 2004/09/15 23:34:24 hroptatyr Exp $
+;; $Id: mtorus-state.el,v 1.7 2004/09/25 16:24:34 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -51,7 +51,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-state-version "Version: 0.1 $Revision: 1.6 $"
+(defconst mtorus-state-version "Version: 0.1 $Revision: 1.7 $"
   "Version of mtorus-state backend.
 CONSIDER THIS ALPHA AT THE MOMENT!")
 
@@ -67,6 +67,11 @@ This variable is obsolete. Use `mtorus-state-save-on-exit'."
   :type 'boolean
   :group 'mtorus-state)
 
+(defcustom mtorus-state-save-deads t
+  "*Whether to save elements that actually would need to be resurrected
+in order to have correct dump data."
+  :type 'boolean
+  :group 'mtorus-state)
 
 (defcustom mtorus-state-ask-for-state-file nil
   "*Whether to always ask to specify a state file."
@@ -153,8 +158,9 @@ If omitted the value of `mtorus-state-file' is used."
    (and (or mtorus-state-ask-for-state-file
             current-prefix-arg)
         (list
-         (read-file-name
-          "MTorus state file: "))))
+         (setq mtorus-state-file
+               (read-file-name
+                "MTorus state file: ")))))
 
   ;; first we dump all elements
   (let (;;(tempbuf (get-buffer-create "*MTorus Dump*"))
@@ -165,7 +171,7 @@ If omitted the value of `mtorus-state-file' is used."
 
       ;; the elements themselves
       (maphash
-       #'(lambda (elem el-prop-ht)
+      #'(lambda (elem el-prop-ht)
            (and (mtorus-element-alive-p elem)
                 (insert
                  (format
@@ -188,7 +194,9 @@ If omitted the value of `mtorus-state-file' is used."
                 (maphash #'(lambda (key val)
                              (maphash
                               #'(lambda (el rel)
-                                  (insert (format "[%s %s %s]\n" rel key el)))
+                                  (and (mtorus-element-alive-p el)
+                                       (mtorus-element-alive-p key)
+                                       (insert (format "[%s %s %s]\n" rel key el))))
                               val))
                          (eval (mtorus-utils-symbol-conc
                                 'mtorus-topology-standard nh))))
@@ -198,8 +206,6 @@ If omitted the value of `mtorus-state-file' is used."
     state-file))
 
 
-
-
 (defun mtorus-state-load (&optional state-file)
   "Restores a dumped mtorus from STATE-FILE.
 If omitted the value of `mtorus-state-file' is used."
@@ -207,8 +213,9 @@ If omitted the value of `mtorus-state-file' is used."
    (and (or mtorus-state-ask-for-state-file
             current-prefix-arg)
         (list
-         (read-file-name
-          "MTorus state file: " nil nil t))))
+         (setq mtorus-state-file
+               (read-file-name
+                "MTorus state file: " nil nil t)))))
 
   (let ((state-file (or state-file
                         (eval mtorus-state-file)))

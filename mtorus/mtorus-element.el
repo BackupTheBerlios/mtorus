@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.15 2004/09/10 21:50:38 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.16 2004/09/25 16:24:34 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.3 $Revision: 1.15 $"
+(defconst mtorus-element-version "Version: 0.3 $Revision: 1.16 $"
   "Version of mtorus-element backend.")
 
 
@@ -176,7 +176,9 @@ to avoid duplicate cookies.
 
 See also: `mtorus-element-generate-cookie-function'"
   (mtorus-utils-symbol-conc  'mtorus (or type 'element)
-                             (format "%.8x" (random))))
+                             (format "%.4x%.4x"
+                                     (mod (random) 65536)
+                                     (mod (random) 65536))))
 ;;(mtorus-element-generate-cookie 'ring)
 
 

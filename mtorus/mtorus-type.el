@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.12 2004/09/14 19:06:45 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.13 2004/09/25 16:24:34 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,7 +53,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.12 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.13 $"
   "Version of mtorus-type backend.")
 
 
@@ -338,7 +338,7 @@ NAME is the name of the type."
   (setq mtorus-types
         (remove name mtorus-types))
   (mapc #'(lambda (keyw)
-            (let ((hname (mtorus-type-hook-name keyword type)))
+            (let ((hname (mtorus-type-hook-name keyw name)))
               (eval
                `(makunbound ',hname))))
         (mtorus-type-hook-list))
@@ -638,7 +638,9 @@ Optional TYPE-FILTER limits this set to only certain types."
     :predicate
     (lambda (element)
       "Determines if ELEMENT is a valid file."
-      (file-readable-p (mtorus-element-get-value element)))
+      (let ((file (mtorus-element-get-value element)))
+        (or (tramp-find-foreign-file-name-handler file)
+            (file-readable-p file))))
 
     :inherit-value
     (lambda (element)
@@ -650,7 +652,9 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :alive-p
     (lambda (element)
-      (file-readable-p (mtorus-element-get-value element)))
+      (let ((file (mtorus-element-get-value element)))
+        (or (tramp-find-foreign-file-name-handler file)
+            (file-readable-p file))))
 
     :post-creation
     (lambda (element)
