@@ -1,3 +1,14 @@
+2004-07-28  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-element.el: stripped foreign definitions from file
+
+	* mtorus-topology.el: mtorus topology definitions
+
+	* mtorus-type.el: mtorus-type definitions
+
+	* mtorus-utils.el: useful auxiliary definitions
+
+
 2004-07-22  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-element.el: (mtorus-topology)

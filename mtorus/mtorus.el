@@ -1,13 +1,15 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.11 2004/07/22 23:09:29 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.12 2004/07/28 01:44:24 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
+;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
+;;         Sebastian Freundt <hroptatyr@users.berlios.de>
 ;; Created: Winter 2002
 ;; Keywords: bookmarks, navigation, tools, extensions, user
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.0 $Revision: 1.11 $"
+(defconst mtorus-version "2.0 $Revision: 1.12 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -150,7 +152,9 @@
   (require 'cl)
   (require 'timer))
 
-;;(require 'mtorus-rings) ;;; turned out to be more abstract
+(require 'mtorus-utils)
+(require 'mtorus-topology)
+(require 'mtorus-type)
 (require 'mtorus-element)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
