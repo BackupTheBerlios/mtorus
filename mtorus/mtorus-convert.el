@@ -1,5 +1,5 @@
 ;;; mtorus-convert.el --- type converters for mtorus
-;; $Id: mtorus-convert.el,v 1.1 2004/09/04 02:37:32 hroptatyr Exp $
+;; $Id: mtorus-convert.el,v 1.2 2004/09/05 00:37:39 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -26,7 +26,10 @@
 
 
 ;;; Commentary:
-;;
+;; This file is not loaded by default.
+;; Put:
+;;   (require 'mtorus-convert)
+;; in your .emacs to enjoy the feature of type conversion.
 
 ;; *** ToDo:
 
@@ -49,7 +52,7 @@
   :group 'mtorus-type)
 
 
-(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.1 $"
+(defconst mtorus-convert-version "Version: 0.1 $Revision: 1.2 $"
   "Version of mtorus-convert backend.")
 
 
@@ -215,8 +218,10 @@ Do not fiddle with it.")
   (let ((convfun (mtorus-utils-symbol-conc
                   'mtorus-type-convert-to
                   type)))
-    (and (fboundp convfun)
-         (funcall convfun conv-prop-ht el-prop-ht))))
+    (or (and (fboundp convfun)
+             conv-prop-ht
+             (funcall convfun conv-prop-ht el-prop-ht))
+        el-prop-ht)))
 (defun mtorus-type-convert-to (type el-prop-ht)
   ""
   (mtorus-type-convert-to-1
@@ -276,7 +281,7 @@ Do not fiddle with it.")
     )
   (define-mtorus-convert file
     ;;:buffer (marker-buffer prop::value)
-    :buffer-name conv::name
+    :buffer-name prop::name
     :buffer-file-name prop::value
     ;;:buffer-point (marker-position prop::value)
     :type 'file
