@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.8 2004/08/02 22:20:56 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.9 2004/08/05 19:49:02 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -73,7 +73,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.8 $"
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.9 $"
   "Version of mtorus-element backend.")
 
 
@@ -440,6 +440,22 @@ not (yet?) update rings that posess this element."
 
 
 
+(defmacro mtorus-element-type-methods-bouncer ()
+  "Installs some useful mtorus-element-METHOD funs."
+  (mapc #'(lambda (method)
+            (eval
+             `(defun ,(mtorus-utils-symbol-conc 'mtorus-element method)
+               (element)
+               ,(format "Runs mtorus-type-%s under the correct type of ELEMENT." method)
+               (let ((fun (mtorus-utils-symbol-conc 'mtorus-type ',method)))
+                 (funcall fun (mtorus-element-get-type element) element)))))
+        (mapcar #'car mtorus-type-methods-alist))
+  t)
+
+(mtorus-element-type-methods-bouncer)
+
+
+
  
 (defun mtorus-element-set-current (element)
   "Sets ELEMENT as current element.
@@ -454,8 +470,9 @@ move me to mtorus-element.el?"
 This runs some hooks at the moment."
   (run-hook-with-args 'mtorus-element-pre-selection-hook element)
   (mtorus-type-run-pre-selection-funs (mtorus-element-get-type element) element)
-  (mtorus-type-inherit-selection (mtorus-element-get-type element) element)
-  (mtorus-type-run-pre-selection-funs (mtorus-element-get-type element) element)
+  (and (mtorus-element-alive-p element)
+       (mtorus-element-inherit-selection element))
+  (mtorus-type-run-post-selection-funs (mtorus-element-get-type element) element)
   (run-hook-with-args 'mtorus-element-post-selection-hook element)
   element)
 
@@ -544,6 +561,13 @@ Optional TYPE-FILTER limits this set to only certain types."
                            :variable-documentation "This is the MTorus Universe.\nDON'T FIDDLE WITH THIS.")
     (mtorus-element-register 'mtorus-universe)))
 ;;(mtorus-type-ring-p 'mtorus-universe)
+
+
+;; (mtorus-topology-standard-siblings 'mtorus-universe)
+;;(mtorus-topology-standard-undefine-all-siblings 'mtorus-universe)
+;;(symbol-function 'mtorus-topology-standard-neighborhood-p)
+
+
 
 (mtorus-element-initialize)
 

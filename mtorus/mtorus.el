@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.15 2004/08/02 22:20:56 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.16 2004/08/05 19:49:03 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.0 $Revision: 1.15 $"
+(defconst mtorus-version "2.0 $Revision: 1.16 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -40,6 +40,7 @@
 ;; you can visit the EmacsWiki page listed below
 ;;
 ;; FIXMEs
+;;  - DELETION IS NOT WORKING ATM
 ;;  - generic interface for special lists, because currently the
 ;;    (only) special list (buffer list) behaviour is hard coded in a
 ;;    way that's probably not sensible for lists like recent-files or
@@ -94,6 +95,15 @@
 ;;     mtorus-prev-element
 ;;     mtorus-parent-element
 ;;     mtorus-child-element
+;;
+;; - If you rather want to simulate mtorus-1.6 navigation behavior try
+;;   navigating with the commands
+;;
+;;     mtorus-uncle-element
+;;     mtorus-aunt-element
+;;     mtorus-nephew-element
+;;     mtorus-niece-element
+;;
 ;; 
 ;; To treat your command history with care, bind these commands to some keys.
 ;; 
@@ -319,8 +329,8 @@ We will define later what this actually means."
 
 
 
-(defun mtorus-install-suggested-bindings ()
-  "This sets the key-bindings that I consider useful.
+(defun mtorus-install-suggested-bindings-ska ()
+  "This sets the key-bindings that I (Stefan Kamphausen) consider useful.
 The bindings don't not fulfill the requirements of good key-defining
 but I like it and I provide it only as a convenience function.
 
@@ -328,13 +338,13 @@ Special care for CUA users is taken."
   (interactive)
   (message "installed")
 
-  ;;; old 1.6
+  ;;; old 1.6, but compatible
   (cond
    ((featurep 'cua) ;; FIXME how to detect?
-    (global-set-key '[(f10)] 'mtorus-next-marker)
-    (global-set-key '[(f9)]  'mtorus-prev-marker)
-    (global-set-key '[(shift f10)]    'mtorus-next-ring)
-    (global-set-key '[(shift f9)]  'mtorus-prev-ring))
+    (global-set-key '[(f10)]         'mtorus-next-marker)
+    (global-set-key '[(f9)]          'mtorus-prev-marker)
+    (global-set-key '[(shift f10)]   'mtorus-next-ring)
+    (global-set-key '[(shift f9)]    'mtorus-prev-ring))
    (t
     (global-set-key '[(shift right)] 'mtorus-next-marker)
     (global-set-key '[(shift left)]  'mtorus-prev-marker)
@@ -342,30 +352,50 @@ Special care for CUA users is taken."
     (global-set-key '[(shift down)]  'mtorus-prev-ring)))
    
   ;; ring handling: f11
-  (global-set-key '[(f11)]
-    'mtorus-new-ring)
-  (global-set-key '[(shift f11)]
-    'mtorus-delete-ring)
-  (global-set-key '[(control f11)]
-    'mtorus-notify)
+  (global-set-key '[(f11)] 'mtorus-new-ring)
+;;   (global-set-key '[(shift f11)]
+;;     'mtorus-delete-ring)
+  ;; doesnt exist atm
+
+;;   (global-set-key '[(control f11)]
+;;     'mtorus-notify)
+  ;; doesnt exist atm
+
   ;; marker handling: f12
   (global-set-key '[(f12)]
     'mtorus-new-marker)
-  (global-set-key '[(shift f12)]
-    'mtorus-delete-current-marker)
-  (global-set-key '[(control f12)]
-    'mtorus-update-current-marker)
+;;   (global-set-key '[(shift f12)]
+;;     'mtorus-delete-current-marker)
+  ;; doesnt exist atm
 
-   ;;; new keybindings
-  (global-set-key '[(hyper kp-6)] 'mtorus-next-element)
-  (global-set-key '[(hyper kp-4)] 'mtorus-prev-element)
-  (global-set-key '[(hyper kp-8)] 'mtorus-parent-element)
-  (global-set-key '[(hyper kp-2)] 'mtorus-child-element)
-  (global-set-key '[(hyper kp-0)] 'mtorus-create-element)
-  (global-set-key '[(hyper kp-5)] 'mtorus-select-current-element)
-  (global-set-key '[(hyper kp-decimal)] 'mtorus-delete-current-element)
+;;   (global-set-key '[(control f12)]
+;;     'mtorus-update-current-marker)
+  ;; doesnt exist atm
 
-  )
+  (message "ska bindings installed"))
+(defalias 'mtorus-install-suggested-bindings
+  'mtorus-install-suggested-bindings-ska)
+
+(defun mtorus-install-suggested-bindings-hroptatyr ()
+  "This sets the key-bindings that I (Sebastian Freundt) consider useful."
+  (interactive)
+
+  (global-set-key '[(control kp-6)] 'mtorus-next-element)
+  (global-set-key '[(control kp-4)] 'mtorus-prev-element)
+  (global-set-key '[(control kp-7)] 'mtorus-aunt-element)
+  (global-set-key '[(control kp-8)] 'mtorus-parent-element)
+  (global-set-key '[(control kp-9)] 'mtorus-uncle-element)
+  (global-set-key '[(control kp-1)] 'mtorus-niece-element)
+  (global-set-key '[(control kp-2)] 'mtorus-child-element)
+  (global-set-key '[(control kp-3)] 'mtorus-nephew-element)
+  (global-set-key '[(control kp-5)] 'mtorus-select-current-element)
+  (global-set-key '[(control kp-0)] 'mtorus-create-element)
+  (global-set-key '[(control kp-decimal)] 'mtorus-delete-element)
+
+  (message "hroptatyr bindings installed"))
+
+
+
 
 
 ;;;;;;;;;;;;;;;;;;;
@@ -484,26 +514,17 @@ which is always run."
 
 ;; Commands
 
-;; ;; all other functions depend on this being run first, so not further
-;; ;; autoloads
-;; ;;###autoload
-;; (defun mtorus-init ()
-;;   "This inits the torus in `mtorus-torus' and creates the special ring
-;;   `mtorus-buffer-list-name' (see there)."
-;;   (interactive)
-;;   (setq mtorus-torus nil)
-;;   (mtorus-new-ring mtorus-buffer-list-name)
-;;   (mtorus-maybe-install-kill-hook)
-;;   (run-hooks 'mtorus-init-hook))
 
-;; REVISE ME!
+;;; REVISE ME!
+;;###autoload
 (defun mtorus-universe-init ()
   "This inits the universal ring `mtorus-universe'."
   (interactive)
   ;;(mtorus-clear-universe)
   ;;(mtorus-maybe-install-kill-hook)
   (run-hooks 'mtorus-init-hook))
-;;(defalias 'mtorus-init 'mtorus-universe-init)
+(defalias 'mtorus-init 'mtorus-universe-init)
+
 
 (defun mtorus-clear-universe (&optional universe)
   "This creates a new clean universe.
@@ -515,14 +536,6 @@ The auto-rings will be set up by running
   (mtorus-clear-elements)
   (mtorus-element-initialize)
   (run-hooks 'mtorus-clear-universe-hook 'mtorus-auto-ring-setup-hook))
-
-;; (defun mtorus-cleanse-universe (&optional universe)
-;;   "Finds and deletes rings from the ring-stack `mtorus-rings'
-;; that are not in the universe."
-;;   (mapc (lambda (ring)
-;;           (and (not (mtorus-ring-in-universe-p ring))
-;;                (mtorus-ring-delete-ring ring)))
-;;         mtorus-rings))
 
 
 (defun mtorus-clear-elements ()
@@ -548,25 +561,49 @@ The auto-rings will be set up by running
 
 
 
+(defcustom mtorus-creation-default-names
+  '((ring . "")
+    (buffer . #'buffer-name)
+    (marker . (format "%s#%s" (buffer-name) (point))))
+  "Names used as defaults when creating elements.
+This is an alist of \(type . default-name-function-or-string\)."
+  :group 'mtorus)
+
+
+(defun mtorus-default-name (type)
+  "Computes a default element name if element were of TYPE."
+  (let* ((str-or-fun
+          (cdr-safe
+           (assoc type
+                  mtorus-creation-default-names)))
+         (result
+          (cond ((functionp str-or-fun)
+                 (funcall str-or-fun))
+                ((functionp (eval str-or-fun))
+                 (funcall (eval str-or-fun)))
+                ((stringp (eval str-or-fun))
+                 (eval str-or-fun))
+                ((stringp str-or-fun)
+                 str-or-fun))))
+    (format "%s" result)))
+
+
+
 ;; these are frontend/user functions for element creation
 
 (defun mtorus-create-element (type name)
   "Create an element of type TYPE and with name NAME (asked from user).
 Unlike mtorus-1.6 elements duplicate names are allowed."
   (interactive
+   ;; REVISE ME!
    (let* ((type
            (intern
             (completing-read
              "Type: "
              (mtorus-type-obarray) nil t)))
           (name
-           ;;; REVISE ME!
-           (read-string "Name: " (cond ((eq type 'buffer)
-                                        (buffer-name))
-                                       ((eq type 'marker)
-                                        (format "%s#%s"
-                                                (buffer-name)
-                                                (point)))))))
+           (read-string "Name: "
+                        (mtorus-default-name type))))
      (list type name)))
   (run-hook-with-args 'mtorus-create-element-pre-hook type name)
   (let ((element
@@ -585,17 +622,30 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
      :message '("new element: %s" element))
     element))
 
-;; this is just a wrapper function to mtorus-create-element
-(defun mtorus-create-ring (name)
-  "Create an mtorus element of type `ring' with name NAME (asked from user).
-If `mtorus-init-ring-emtpy' is nil a marker at the current point
-is created and pushed on the list, otherwise the ring stays empty for
-the moment. Makes the new ring the current ring.
+;; these are just wrapper functions to mtorus-create-element
+(defun mtorus-create-bouncer (types)
+  "Creates `mtorus-create-<TYPE>' functions."
+  (interactive)
+  (mapc
+   #'(lambda (type)
+       (mapc
+        #'eval
+        `((defun ,(mtorus-utils-symbol-conc 'mtorus-create type)
+            (name)
+            ,(format
+              "Create an mtorus element of type `%s' with NAME (asked from user)."
+              type)
+            (interactive
+             (list (read-string
+                    ,(format "%s name: "
+                             (capitalize (format "%s" type)))
+                    (mtorus-default-name ',type))))
+            (mtorus-create-element ',type name))
+          (defalias ',(mtorus-utils-symbol-conc 'mtorus-new type)
+            ',(mtorus-utils-symbol-conc 'mtorus-create type)))))
+  types))
+(mtorus-create-bouncer mtorus-types)
 
-Unlike mtorus-1.6 rings duplicate names are allowed."
-  (interactive "sRing name: ")
-  (mtorus-create-element 'ring name))
-(defalias 'mtorus-new-ring-3 'mtorus-create-ring)
 
 
 
@@ -694,12 +744,13 @@ elements to only those of a certain type."
                         table nil t)
                        table)))
           (rels (mtorus-topology-neighborhood-obarray 'standard))
-          (rel (completing-read
-                "Relation: "
-                rels nil t)))
+          (rel (intern
+                (completing-read
+                 "Relation: "
+                 rels nil t))))
      (list el1 el2 rel)))
   (run-hook-with-args 'mtorus-detach-element-pre-hook element1 element2)
-  (mtorus-element-detach-relation element1 element2 relation)
+  (mtorus-topology-define-relation 'standard relation element1 element2)
   (run-hook-with-args 'mtorus-detach-element-post-hook element1 element2)
   (mtorus-display-message
    message
@@ -763,27 +814,6 @@ elements to only those of a certain type."
 
 
 
-
-
-;; old 1.6
-;; (defun mtorus-new-ring (ring-name)
-;;   "Create a ring with name RING-NAME (asked from user).
-;; If `mtorus-init-ring-emtpy' is nil a marker at the current point
-;; is created and pushed on the list, otherwise the ring stays empty for
-;; the moment.  Makes the new ring the current ring.
-;; 
-;; It won't create a ring with a name that already exists."
-;;   (interactive "sRing name: ")
-;;   (if (mtorus-ringp ring-name)
-;;       (mtorus-message
-;;        (format "A ring with name \"%s\" already exists."
-;;                ring-name))
-;;     (let* ((content (mtorus-initial-ring-contents ring-name))
-;;           (ring (cons ring-name (list content))))
-;;       (setq mtorus-torus
-;;             (append mtorus-torus
-;;                     (list ring))))
-;;     (mtorus-switch-to-ring ring-name t)))
 
 
 ;; old 1.6
@@ -925,7 +955,9 @@ Note this is invariant under the current topology."
   "Fun used to determine the parent of a torus element."
   :group 'mtorus
   :type 'function-name)
-(defcustom mtorus-child-element-function #'car
+(defcustom mtorus-child-element-function
+  #'(lambda (elements)
+      (car-safe (remove 'mtorus-universe elements)))
   "Fun used to determine the child a torus element."
   :group 'mtorus
   :type 'function-name)
@@ -938,9 +970,8 @@ Optional NEIGHBOR-FUNCTION measures distances between the neighbor element.
 
 The element symbol is returned."
   ;; REVISE ME!!!
-  ;; at the moment this fun does neither
-  ;; respect current-topology
-  ;; nor orders
+  ;; at the moment this fun does not
+  ;; respect orders
   (let* ((nhlen (length elements))
          (othelt
           (and (< 0 nhlen)
@@ -953,36 +984,50 @@ The element symbol is returned."
   "Determines the next element on the current ring.
 See `mtorus-next-element-function' on how to determine this."
   (let* ((nextelt (mtorus-determine-neighbor-elements
-                   (mtorus-topology-standard-siblings element)
+                   (mtorus-topology-neighborhood
+                    mtorus-current-topology
+                    'siblings
+                    element)
                    element
                    mtorus-next-element-function)))
-    nextelt))
-(defun mtorus-determine-prev-element (element)
+    (or nextelt element)))
+(defun mtorus-determine-prev-element ( element)
   "Determines the previous element on the current torus.
 See `mtorus-prev-element-function' on how to determine this."
   (let* ((prevelt (mtorus-determine-neighbor-elements
-                   (mtorus-topology-standard-siblings element)
+                   (mtorus-topology-neighborhood
+                    mtorus-current-topology
+                    'siblings
+                    element)
                    element
                    mtorus-prev-element-function)))
-    prevelt))
+    (or prevelt element)))
 (defun mtorus-determine-parent-element (element)
   "Determines the next element on the current ring.
 See `mtorus-next-element-function' on how to determine this."
-  (let* ((parent (funcall mtorus-parent-element-function
-                          (mtorus-topology-standard-parents element))))
-    parent))
+  (let* ((parent
+          (funcall mtorus-parent-element-function
+                   (mtorus-topology-neighborhood
+                    mtorus-current-topology
+                    'parents
+                    element))))
+    (or parent 'mtorus-universe)))
 (defun mtorus-determine-child-element (element)
   "Determines the previous element on the current torus.
 See `mtorus-prev-element-function' on how to determine this."
-  (let* ((child (funcall mtorus-child-element-function
-                         (mtorus-topology-standard-children element))))
-    child))
+  (let* ((child
+          (funcall mtorus-child-element-function
+                   (mtorus-topology-neighborhood
+                    mtorus-current-topology
+                    'children
+                    element))))
+    (or child element)))
 
 
 ;;; these are user frontend funs :) ... finally
 
 (defun mtorus-next-element ()
-  "Make the next element the current element.
+  "Make the current element's next sibling the current element.
 This is done with respect to the current topology."
   (interactive)
   (let* ((curelt mtorus-current-element)
@@ -995,7 +1040,8 @@ This is done with respect to the current topology."
      :message '("new current: %s (was: %s)" element otherelement))
     newelt))
 (defun mtorus-prev-element ()
-  "Make the previous entry on the ring the current element."
+  "Make the current element's previous sibling the current element.
+This is done with respect to the current topology."
   (interactive)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-prev-element curelt)))
@@ -1007,7 +1053,7 @@ This is done with respect to the current topology."
      :message '("new current: %s (was: %s)" element otherelement))
     newelt))
 (defun mtorus-parent-element ()
-  "Make the next ring on the torus the current ring.
+  "Make the first parent of the current element's parents the current element.
 This is done with respect to the current topology."
   (interactive)
   (let* ((curelt mtorus-current-element)
@@ -1020,11 +1066,80 @@ This is done with respect to the current topology."
      :message '("new current: %s (was: %s)" element otherelement))
     newelt))
 (defun mtorus-child-element ()
-  "Make the next ring on the torus the current ring.
+  "Make the first child of the current element's children the current element.
 This is done with respect to the current topology."
   (interactive)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-child-element curelt)))
+    (mtorus-element-set-current newelt)
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
+
+;;; mtorus 1.6 compatibility navigation
+(defun mtorus-aunt-element ()
+  "Make the prev sibling of the current element's parents the current element.
+This is done with respect to the current topology."
+  (interactive)
+  (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
+                        mtorus-current-element)
+                       (t (mtorus-determine-parent-element
+                           mtorus-current-element))))
+         (newelt (mtorus-determine-prev-element
+                  curelt)))
+    (mtorus-element-set-current newelt)
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
+(defun mtorus-uncle-element ()
+  "Make the next sibling of the current element's parents the current element.
+This is done with respect to the current topology."
+  (interactive)
+  (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
+                        mtorus-current-element)
+                       (t (mtorus-determine-parent-element
+                           mtorus-current-element))))
+         (newelt (mtorus-determine-next-element
+                  curelt)))
+    (mtorus-element-set-current newelt)
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
+(defun mtorus-niece-element ()
+  "Make the prev sibling of the current element's child the current element.
+This is done with respect to the current topology."
+  (interactive)
+  (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
+                        (mtorus-determine-child-element mtorus-current-element))
+                       (t mtorus-current-element)))
+         (newelt (mtorus-determine-prev-element
+                  curelt)))
+    (mtorus-element-set-current newelt)
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
+(defun mtorus-nephew-element ()
+  "Make the next sibling of the current element's child the current element.
+This is done with respect to the current topology."
+  (interactive)
+  (let* ((curelt (cond ((mtorus-type-ring-p mtorus-current-element)
+                        (mtorus-determine-child-element
+                         mtorus-current-element))
+                       (t mtorus-current-element)))
+         (newelt (mtorus-determine-next-element
+                  curelt)))
     (mtorus-element-set-current newelt)
     (mtorus-display-message
      message
@@ -1065,6 +1180,15 @@ Selection can be done by:
    :message '("selected: %s" element))
   element)
 
+
+
+(defun mtorus-install-mtorus16-names ()
+  "Installs some defaliases due to mtorus-1.6 compatibility."
+  (interactive)
+  (defalias 'mtorus-next-ring 'mtorus-uncle-element)
+  (defalias 'mtorus-prev-ring 'mtorus-aunt-element)
+  (defalias 'mtorus-next-marker 'mtorus-nephew-element)
+  (defalias 'mtorus-prev-marker 'mtorus-niece-element))
 
 
 

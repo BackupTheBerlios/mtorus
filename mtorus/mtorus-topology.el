@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.5 2004/08/02 22:20:56 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.6 2004/08/05 19:49:03 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.5 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.6 $"
   "Version of mtorus-topology backend.")
 
 
@@ -141,6 +141,7 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
          ,(format "MTorus topology.\nValue indicates registered neighborhoods"))
 
 
+
        ;;; find functions
        ;; this is the find function `mtorus-topology-<TOPO>-find'
        (defun ,(mtorus-utils-symbol-conc topology-name 'find)
@@ -190,6 +191,46 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                  ,(mtorus-utils-symbol-conc topology-name 'neighborhoods))
            neighborhood-obarray))
 
+       ;; the neighborhood predicate
+       (defun ,(mtorus-utils-symbol-conc topology-name 'neighborhood 'p)
+         (neighborhood)
+         ,(format "Checks if NEIGHBORHOOD is a valid neighbordhood in %s"
+                  topology-name)
+         (member neighborhood
+                 (mtorus-topology-neighborhoods ',name)))
+
+
+       ;; the neighborhood name function
+       (defun ,(mtorus-utils-symbol-conc topology-name 'neighborhood 'name)
+         (neighborhood)
+         ,(format "Converts given NEIGHBORHOOD as %s-NEIGHBORHOOD to 'NEIGHBORHOOD"
+                  topology-name)
+         (intern
+          (replace-regexp-in-string
+           ,(format "%s-" name)
+           ""
+           (format "%s" (replace-regexp-in-string
+                         "mtorus-topology-"
+                         ""
+                         (format "%s" neighborhood))))))
+
+
+       ;; the mtorus-topology-<TOPO>-neighborhood function
+       (defun ,(mtorus-utils-symbol-conc topology-name 'neighborhood)
+         (neighborhood element)
+         ,(format "Return neighbors of element with respect to NEIGHBORHOOD
+in %s" topology-name)
+         (let ((nh (,(mtorus-utils-symbol-conc topology-name 'neighborhood-name)
+                    neighborhood)))
+         (when (,(mtorus-utils-symbol-conc topology-name 'neighborhood 'p)
+                nh)
+           (funcall
+            (mtorus-utils-symbol-conc ',topology-name nh)
+            element))))
+
+       ;;; the more general macro: define-mtorus-topology-neighborhood
+             ;;; <insert me here> 
+
 
        ;;; this is the define-mtorus-topology-<TOPO>-neighborhood macro
        (defmacro
@@ -203,6 +244,8 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                  (mtorus-utils-symbol-conc ',topology-name 'define name))
                (undef-nh-relation-name
                 (mtorus-utils-symbol-conc ',topology-name 'undefine name))
+               (undef-nh-all-relation-name
+                (mtorus-utils-symbol-conc ',topology-name 'undefine 'all name))
                (undirected-relation-p
                 (or (mtorus-utils-parse-key-cdr ':undirected properties)
                     (not (mtorus-utils-parse-key-cdr ':directed properties t)))))
@@ -262,6 +305,7 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                               (puthash element1 ','(\, name) neighbors-rev))
                          (puthash element2 ','(\, name) neighbors))))
 
+
                 ;;; e.g. mtorus-topology-standard-undefine-siblings
                 (defun ,'(\, undef-nh-relation-name) (element1 element2)
                   ,(list
@@ -291,6 +335,28 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                               (remhash element1 neighbors-rev))
                          (remhash element2 neighbors))))
 
+                ;; e.g. mtorus-topology-standard-undefine-all-siblings
+                (defun ,'(\, undef-nh-all-relation-name) (element)
+                  ,(list
+                    '\,
+                    `(format
+                      "Deletes all %s relations (%s) of ELEMENT in %s"
+                      name 
+                      (if undirected-relation-p
+                          "undirected"
+                        "directed")
+                      ',topology-name))
+                  (and (mtorus-element-p element)
+                       (let ((neighbors (mtorus-topology-neighborhood
+                                         ',name ','(\, name) element)))
+                         (mapc #'(lambda (elem)
+                                   (mtorus-topology-undefine-relation
+                                    ',name
+                                    ','(\, name)
+                                    element elem))
+                               (remove element neighbors)))))
+
+
                 ;;; e.g. mtorus-topology-standard-siblings
                 (defun ,'(\, neighborhood-name) (element)
                   ,(format "MTorus neighborhood in %s"
@@ -313,56 +379,71 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
 
 ;;; some auxiliary funs
 
+(defun mtorus-topology-name (topology)
+  "Converts given TOPOLOGY as mtorus-topology-TOPOLOGY to 'TOPOLOGY"
+  (intern
+   (replace-regexp-in-string
+    "mtorus-topology-"
+    ""
+    (format "%s" topology))))
+
 (defun mtorus-topology-p (topology)
   "Checks if TOPOLOGY is a valid mtorus-topology."
-  (or (when (member topology mtorus-topologies)
-        t)
-      (when (member
-             topology
-             (mapcar #'(lambda (top)
-                         (mtorus-utils-symbol-conc
-                          'mtorus-topology top))
-                     mtorus-topologies))
-        t)))
-;;(mtorus-topology-p 'mtorus-topology-standard)
+  (when (member (mtorus-topology-name topology)
+                mtorus-topologies)
+    t))
 
 
 (defun mtorus-topology-neighborhoods (topology)
   "Return all neighborhoods currently registered with TOPOLOGY."
-  (eval (mtorus-utils-symbol-conc 'mtorus-topology topology 'neighborhoods)))
+  (eval (mtorus-utils-symbol-conc 'mtorus-topology
+                                  (mtorus-topology-name topology)
+                                  'neighborhoods)))
 
 (defun mtorus-topology-neighborhood-obarray (topology &optional filter)
   "Makes an obarray from `mtorus-topology-<TOPOLOGY>-neighborhoods'.
 Optional FILTER limits this set to only certain neighborhoods."
   (when (mtorus-topology-p topology)
-    (funcall (mtorus-utils-symbol-conc 'mtorus-topology topology 'neighborhood-obarray)
-             filter)))
+    (funcall
+     (mtorus-utils-symbol-conc 'mtorus-topology (mtorus-topology-name topology)
+                               'neighborhood-obarray)
+     filter)))
+
+
+(defun mtorus-topology-neighborhood (topology neighborhood element)
+  "Return ELEMENT's NEIGHBORHOOD in TOPOLOGY."
+  (let ((topo (mtorus-topology-name topology)))
+    (when (mtorus-topology-p topo)
+      (funcall
+       (mtorus-utils-symbol-conc 'mtorus-topology topo 'neighborhood)
+       neighborhood element))))
 
 
 (defun mtorus-topology-find (topology element)
   "Return all occurences of ELEMENT in TOPOLOGY
 \(along with their neighborhood type\)."
   (when (mtorus-topology-p topology)
-    (funcall (mtorus-utils-symbol-conc 'mtorus-topology topology 'find) element)))
+    (funcall (mtorus-utils-symbol-conc 'mtorus-topology (mtorus-topology-name topology) 'find) element)))
 
 (defun mtorus-topology-find-relation (topology element relation)
   "Return all occurences of ELEMENT in TOPOLOGY with
 neighborhood type RELATION."
   (when (mtorus-topology-p topology)
-    (funcall (mtorus-utils-symbol-conc 'mtorus-topology topology 'find) element)))
+    (funcall (mtorus-utils-symbol-conc 'mtorus-topology (mtorus-topology-name topology) 'find) element)))
+
 
 (defun mtorus-topology-define-relation (topology neighborhood element1 element2)
   "Defines NEIGHBORHOOD relation in TOPOLOGY between ELEMENT1 and ELEMENT2."
   (when (mtorus-topology-p topology)
     (funcall
-     (mtorus-utils-symbol-conc 'mtorus-topology topology 'define-relation)
+     (mtorus-utils-symbol-conc 'mtorus-topology (mtorus-topology-name topology) 'define-relation)
      neighborhood element1 element2)))
 
 (defun mtorus-topology-undefine-relation (topology neighborhood element1 element2)
   "Defines NEIGHBORHOOD relation in TOPOLOGY between ELEMENT1 and ELEMENT2."
   (when (mtorus-topology-p topology)
     (funcall
-     (mtorus-utils-symbol-conc 'mtorus-topology topology 'undefine-relation)
+     (mtorus-utils-symbol-conc 'mtorus-topology (mtorus-topology-name topology) 'undefine-relation)
      neighborhood element1 element2)))
 
 
@@ -413,7 +494,13 @@ neighborhood type RELATION."
                                    (add-to-list ',neighborhood neighbor)))
                           neighbors)
                  ,neighborhood))))
-        '(parents children)))
+        '(parents children))
+
+  ;; the 1.6 compatibility topology
+  (define-mtorus-topology
+    mtorus16
+    :neighborhoods (parents children rings elements))
+  )
 
 (mtorus-topology-initialize)
 
@@ -424,6 +511,126 @@ neighborhood type RELATION."
 
 
 
+
+
+
+;;;
+;;; code for attaching
+;;; REVISE ME!!!
+
+(defmacro mtorus-topology-standard-define-element-attach (attach)
+  "Defines `mtorus-attach-element-to-ATTACH' and
+`mtorus-detach-element-from-ATTACH'."
+  (let* ((attach
+          (intern
+           (replace-regexp-in-string
+            "^mtorus-\\(.+\\)$" "\\1" (format "%s" attach))))
+         (m+attach
+          (mtorus-utils-symbol-conc 'mtorus attach))
+         (attach-fun-name
+          (mtorus-utils-symbol-conc 'mtorus-attach-element-to attach))
+         (detach-fun-name
+          (mtorus-utils-symbol-conc 'mtorus-detach-element-from attach)))
+    (when (mtorus-topology-p 'standard)
+      (mapc
+       #'eval
+       `((defun ,attach-fun-name (element)
+           ,(format "Attaches ELEMENT to %s" attach)
+           (mtorus-topology-standard-define-children (or ,m+attach
+                                                         ',m+attach)
+                                                     element)
+           (mtorus-topology-standard-define-parents element
+                                                    (or ,m+attach
+                                                        ',m+attach)))
+         (defun ,detach-fun-name (element)
+           ,(format "Detaches ELEMENT from %s" attach)
+           (mtorus-topology-standard-undefine-children (or ,m+attach
+                                                           ',m+attach)
+                                                       element)
+           (mtorus-topology-standard-undefine-parents element
+                                                      (or ,m+attach
+                                                          ',m+attach))))))
+    `',attach-fun-name))
+
+(mtorus-topology-standard-define-element-attach mtorus-universe)
+(mtorus-topology-standard-define-element-attach mtorus-current-ring)
+
+
+
+;; (defun mtorus-fake-attach-element-to-current (current element &optional type-filter)
+;;   "Attaches ELEMENT to anything in CURRENT using the 'siblings relation."
+;;   (when (mtorus-topology-p 'standard)
+;;     (let ((siblings
+;;            (mtorus-topology-standard-children
+;;             (car (mtorus-topology-standard-parents current)))))
+;;       (mapc #'(lambda (sibling)
+;;                 (mtorus-topology-standard-define-siblings sibling element))
+;;             (if (functionp type-filter)
+;;                 (funcall type-filter siblings)
+;;               siblings))
+;;       (mtorus-topology-standard-define-siblings element element))))
+
+(defun mtorus-fake-attach-element-to-current (current element &optional type-filter)
+  "Attaches ELEMENT to anything in CURRENT using the 'siblings relation."
+  (when (mtorus-topology-p 'standard)
+    (let ((siblings
+           (mtorus-topology-standard-siblings current)))
+      (mapc #'(lambda (sibling)
+                (mtorus-topology-standard-define-siblings sibling element))
+            (if (functionp type-filter)
+                (funcall type-filter siblings)
+              siblings))
+      (mtorus-topology-standard-define-siblings element element))))
+
+
+;;
+;; this is ugly hard coding of stuff :(
+
+(defun mtorus-fake-attach-ring-to-rings (ring &optional type-filter)
+  "Attaches RING to all other rings.
+Basically this is bad code and should be generalized somehow."
+  (and (mtorus-type-ring-p ring)
+       (let* ((elht (eval mtorus-elements-hash-table))
+              (rings))
+         (maphash #'(lambda (key val)
+                      (and (mtorus-type-ring-p key)
+                           (add-to-list 'rings key)))
+                  elht)
+         (mapc #'(lambda (elem)
+                   (mtorus-topology-define-relation 'standard 'siblings ring elem))
+               (cons ring (remove 'mtorus-universe rings))))
+       ring))
+
+(defun mtorus-fake-attach-element-to-children-of-ring (element ring &optional type-filter)
+  "Attaches ELEMENT to all other elements (children) of RING.
+Basically this is bad code and should be generalized somehow."
+  (and (mtorus-type-ring-p ring)
+       (not (eq ring 'mtorus-universe))
+       (let* ((children (mtorus-topology-standard-children ring)))
+         (mapc #'(lambda (elem)
+                   (mtorus-topology-define-relation 'standard 'siblings element elem))
+               (cons element children)))))
+
+(defun mtorus-fake-attach-element-to-children-of-element (element overelement &optional type-filter)
+  "Attaches ELEMENT to all other elements (children) of OVERELEMENT.
+Basically this is bad code and should be generalized somehow."
+  (and (let* ((children (mtorus-topology-standard-children overelement)))
+         (mapc #'(lambda (elem)
+                   (mtorus-topology-define-relation 'standard 'siblings element elem))
+               (cons element children)))))
+
+
+(defun mtorus-fake-attach-get-current-ring-1 (element)
+  "Tries to find the current ring."
+  (cond ((eq element 'mtorus-universe)
+         nil)
+        ((mtorus-type-ring-p element)
+         element)
+        (t (mtorus-fake-attach-get-current-ring-1
+            (car (mtorus-topology-standard-parents element))))))
+(defun mtorus-fake-attach-get-current-ring ()
+  "Tries to find the current ring."
+  (mtorus-fake-attach-get-current-ring-1 mtorus-current-element))
 
 
 ;;;;

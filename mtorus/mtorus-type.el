@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.5 2004/08/02 22:20:56 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.6 2004/08/05 19:49:03 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,8 +53,13 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.5 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.6 $"
   "Version of mtorus-type backend.")
+
+(defcustom mtorus-type-properties-alist
+  '((attachable-to . attachable-to))
+  ""
+  :group 'mtorus-type)
 
 
 (defcustom mtorus-type-methods-alist
@@ -95,7 +100,7 @@ If you intend to work on lists of elements use actions instead.
     (pre-deletion . pre-deletion-funs)
     (post-deletion . post-deletion-funs)
     (pre-selection . pre-selection-funs)
-    (post-selection . post-seletion-funs)
+    (post-selection . post-selection-funs)
 
     ;; hooks run when navigating around
     (pre-choose . pre-choose-funs)
@@ -171,16 +176,22 @@ the according values in PROPERTIES.
 For your convenience you can add or remove keywords later.
 See `mtorus-alter-type'."
   (add-to-list 'mtorus-types name)
-  (mapc #'(lambda (handler)
-            (let* ((hname (car handler))
-                   (hhook (cdr handler))
-                   (expanded-type-name
-                    (mtorus-utils-symbol-conc 'mtorus-type name hhook)))
-              (eval
-               `(defvar ,expanded-type-name nil
-                 ,(format "Functions called ... DOCUMENT ME ... %s" name)))
-              (set expanded-type-name nil)))
-        mtorus-type-hooks-alist)
+  (let ((type-name (mtorus-utils-symbol-conc 'mtorus-type name)))
+    (mapc #'(lambda (handler)
+              (let* ((hname (car handler))
+                     (hhook (cdr handler))
+                     (expanded-type-name
+                      (mtorus-utils-symbol-conc 'mtorus-type name hhook)))
+                (eval
+                 `(defvar ,expanded-type-name nil
+                   ,(format "Functions called ... DOCUMENT ME ... %s" name)))
+                (set expanded-type-name nil)))
+          mtorus-type-hooks-alist)
+    (mapc
+     #'eval
+     `((defvar ,type-name nil
+         ,(format "MTorus type."))
+       (setq ,type-name ',properties))))
   (eval `(mtorus-alter-type ,name ,@properties))
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 (defalias 'mtorus-define-type 'define-mtorus-type)
@@ -261,13 +272,12 @@ NAME is the name of the type."
 
 
 (defmacro mtorus-type-run-methods-bouncer ()
-  "Installs some useful mtorus-element-run-HOOKS funs."
+  "Installs some useful mtorus-type-METHOD funs."
   (mapc #'(lambda (method)
             (let ((mname (car method))
                   (mfunn (cdr method)))
               (eval
-               `(defun
-                 ,(intern (format "mtorus-type-%s" mname))
+               `(defun ,(mtorus-utils-symbol-conc 'mtorus-type mname)
                  (type &optional element)
                  ,(format "Runs mtorus-type-TYPE-%s" mfunn)
                  (let ((fun (intern (format "mtorus-type-%s-%s"
@@ -276,11 +286,10 @@ NAME is the name of the type."
         mtorus-type-methods-alist)
   t)
 (defmacro mtorus-type-run-hooks-bouncer ()
-  "Installs some useful mtorus-element-run-HOOKS funs."
+  "Installs some useful mtorus-type-run-HOOKS funs."
   (mapc #'(lambda (hook)
             (eval
-             `(defun
-               ,(intern (format "mtorus-type-run-%s" hook))
+             `(defun ,(mtorus-utils-symbol-conc 'mtorus-type-run hook)
                (type &optional element)
                ,(format "Runs mtorus-type-TYPE-%s-function" hook)
                (let ((fun (intern (format "mtorus-type-%s-%s"
@@ -316,60 +325,8 @@ Returns just the elements of type TYPE."
 
 
 
-;;;
-;;; code for attaching
-;;; REVISE ME!!!
-
-(defmacro mtorus-topology-standard-define-element-attach (attach)
-  "Defines `mtorus-attach-element-to-ATTACH' and
-`mtorus-detach-element-from-ATTACH'."
-  (let* ((attach
-          (intern
-           (replace-regexp-in-string
-            "^mtorus-\\(.+\\)$" "\\1" (format "%s" attach))))
-         (m+attach
-          (mtorus-utils-symbol-conc 'mtorus attach))
-         (attach-fun-name
-          (mtorus-utils-symbol-conc 'mtorus-attach-element-to attach))
-         (detach-fun-name
-          (mtorus-utils-symbol-conc 'mtorus-detach-element-from attach)))
-    (when (mtorus-topology-p 'standard)
-      (mapc
-       #'eval
-       `((defun ,attach-fun-name (element)
-           ,(format "Attaches ELEMENT to %s" attach)
-           (mtorus-topology-standard-define-children (or ,m+attach
-                                                         ',m+attach)
-                                                     element)
-           (mtorus-topology-standard-define-parents element
-                                                    (or ,m+attach
-                                                        ',m+attach)))
-         (defun ,detach-fun-name (element)
-           ,(format "Detaches ELEMENT from %s" attach)
-           (mtorus-topology-standard-undefine-children (or ,m+attach
-                                                           ',m+attach)
-                                                       element)
-           (mtorus-topology-standard-undefine-parents element
-                                                      (or ,m+attach
-                                                          ',m+attach))))))
-    `',attach-fun-name))
-
-(mtorus-topology-standard-define-element-attach mtorus-universe)
-(mtorus-topology-standard-define-element-attach mtorus-current-ring)
 
 
-(defun mtorus-fake-attach-element-to-current (current element &optional type-filter)
-  "Attaches ELEMENT to anything in current using the 'siblings relation."
-  (when (mtorus-topology-p 'standard)
-    (let ((siblings
-           (mtorus-topology-standard-children
-            (car (mtorus-topology-standard-parents current)))))
-      (mapc #'(lambda (sibling)
-                (mtorus-topology-standard-define-siblings sibling element))
-            (if (functionp type-filter)
-                (funcall type-filter siblings)
-              siblings))
-      (mtorus-topology-standard-define-siblings element element))))
 
 
 ;;; some UI functions
@@ -399,6 +356,7 @@ Optional TYPE-FILTER limits this set to only certain types."
 
   ;;; actually this will walk to mtorus.el some day
   ;;; because it isnt really backend
+  ;;; at the moment we use bad auto-attachment code here :(
 
 (defun mtorus-type-initialize ()
   "Initialization of predefined mtorus types."
@@ -421,7 +379,12 @@ Optional TYPE-FILTER limits this set to only certain types."
 
     :inherit-selection
     (lambda (element)
-        (mtorus-child-element))
+      (setq mtorus-current-ring element)
+      (mtorus-child-element))
+
+    :alive-p
+    (lambda (element)
+      t)
 
     :post-creation mtorus-attach-element-to-universe
     ;;:post-selection
@@ -429,11 +392,8 @@ Optional TYPE-FILTER limits this set to only certain types."
 
   (add-hook 'mtorus-type-ring-post-creation-funs
             #'(lambda (element)
-                (mtorus-fake-attach-element-to-current
-                 mtorus-current-ring element
-                 #'(lambda (elements)
-                     (remove 'mtorus-universe (mtorus-type-filter 'ring elements))))
-                (setq mtorus-current-element element)
+                (mtorus-fake-attach-ring-to-rings element)
+                (mtorus-element-set-current element)
                 (setq mtorus-current-ring element)))
 
 
@@ -462,17 +422,18 @@ Optional TYPE-FILTER limits this set to only certain types."
     :pre-selection
     (lambda (element)
       (unless (mtorus-type-buffer-alive-p element)
-        (mtorus-element-set-current (mtorus-determine-parent-element element))
-        (mtorus-element-detach element))))
+        ;;(mtorus-element-set-current (mtorus-determine-parent-element element))
+        ;;(mtorus-element-detach element)
+        )))
 
   (add-hook 'mtorus-type-buffer-post-creation-funs
             #'(lambda (element)
-                (mtorus-fake-attach-element-to-current
-                 mtorus-current-element element
+                (mtorus-fake-attach-element-to-children-of-ring
+                 element (mtorus-fake-attach-get-current-ring)
                  #'(lambda (elements)
                      (append (mtorus-type-filter 'buffer elements)
                              (mtorus-type-filter 'marker elements))))
-                (setq mtorus-current-element element)))
+                (mtorus-element-set-current element)))
 
 
 
@@ -503,17 +464,21 @@ Optional TYPE-FILTER limits this set to only certain types."
     :pre-selection
     (lambda (element)
       (unless (mtorus-type-marker-alive-p element)
-        (mtorus-element-set-current (mtorus-determine-parent-element element))
-        (mtorus-element-detach element))))
+        ;;(mtorus-element-set-current (mtorus-determine-parent-element element))
+        ;;(mtorus-element-detach element)
+        )))
 
   (add-hook 'mtorus-type-marker-post-creation-funs
             #'(lambda (element)
-                (mtorus-fake-attach-element-to-current
-                 mtorus-current-element element
+                (mtorus-fake-attach-element-to-children-of-element
+                 element (cond ((or (mtorus-type-buffer-p mtorus-current-element)
+                                    (mtorus-type-ring-p mtorus-current-element))
+                                mtorus-current-element)
+                               (t (mtorus-fake-attach-get-current-ring)))
                  #'(lambda (elements)
                      (append (mtorus-type-filter 'buffer elements)
                              (mtorus-type-filter 'marker elements))))
-                (setq mtorus-current-element element)))
+                (mtorus-element-set-current element)))
 
   ;; furthermore there should be some usre customization here,
   ;; im talking about mtorus-type-auto-register-at-topology-p or something
@@ -527,6 +492,25 @@ Optional TYPE-FILTER limits this set to only certain types."
   "Uninitializes mtorus types"
   (interactive)
   (mapc 'undefine-mtorus-type mtorus-types))
+
+;; I'm currently thinking of a more generic way to define types
+;; type definition should be in general merely memorizing the
+;; type properties
+;; `applications' or code that need some property of a type can
+;; ask the type's variable value then
+;;
+;; this would provide a nice interface to future code
+;;
+;; Example definition of a type then (for example for attachment settings)
+;; (define-mtorus-type ring
+;;   :allow-topology standard  ;; this allows the ring type to be part of the topology standard
+;;   :allow-topology mtorus16  ;; this allows the ring type to be part of the topology mtorus16
+;;   :allow-relation (standard parents buffer) ;; ring can be the parent of a buffer
+;;   :allow-relation (standard parents marker) ;; ring can be the parent of a marker
+;;   :allow-relation (standard parents ring)   ;; ring can be the parent of a ring
+;;   :allow-relation (standard siblings ring)   ;; ring can be the parent of a ring
+;;   ...
+;;   )
 
 
 (run-hooks 'mtorus-type-after-load-hook)

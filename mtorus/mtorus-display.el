@@ -1,5 +1,5 @@
 ;;; mtorus-display.el --- display functions of the mtorus
-;; $Id: mtorus-display.el,v 1.2 2004/08/02 22:20:56 hroptatyr Exp $
+;; $Id: mtorus-display.el,v 1.3 2004/08/05 19:49:02 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,14 +50,15 @@
   :group 'mtorus)
 
 
-(defconst mtorus-display-version "Version: 0.1 $Revision: 1.2 $"
+(defconst mtorus-display-version "Version: 0.1 $Revision: 1.3 $"
   "Version of mtorus-display backend.")
 
 
 ;;; REVISE ME!!
 (defmacro define-mtorus-display (name &rest display-spec)
   "yet to be documented ..."
-  )
+  ;; yet to be implemented
+  t)
 (defalias 'mtorus-define-display 'define-mtorus-display)
 (defalias 'mtorus-display-define 'define-mtorus-display)
 
@@ -68,25 +69,28 @@
 (defun mtorus-display-initialize ()
   ""
   (define-mtorus-display
-    element-by-name
-    )
-  )
+    element-by-name))
 
 (mtorus-display-initialize)
+
+
 
 (defcustom mtorus-display-variable-transformation-map
   '((element . #'mtorus-element-get-name)
     (otherelement . #'mtorus-element-get-name)
     (message . #'format))
-  ""
+  "Alist of functions (in the cdr) to be applied to the variable (in the car).
+The variable's value is replaced by the function result then."
   :group 'mtorus-display)
 
 (defcustom mtorus-displays
-  `((message . ,(cond ((featurep 'xemacs)
-                       #'(lambda (message)
-                           (display-message 'no-log message)))
-                      (t
-                       #'message)))
+  `((message . (lambda (message)
+                 (mtorus-display-siblings)
+                 (cond ((featurep 'xemacs)
+                        ;;(display-message 'no-log message)
+                        )
+                       (t
+                        (message message)))))
     (notify . ()))
   "Alist of display instances."
   :group 'mtorus-display)
@@ -201,37 +205,37 @@
 ;;               (run-with-timer
 ;;                mtorus-notify-popup-clear-timeout nil
 ;;                #'mtorus-notify-maybe-cleanup))))))
-;; 
-;; (defface mtorus-highlight-face
-;;   '((((class color) (background light))
-;;      (:background "khaki"))
-;;     (((class color) (background dark))
-;;      (:background "sea green"))
-;;     (((class grayscale monochrome)
-;;       (background light))
-;;      (:background "black"))
-;;     (((class grayscale monochrome)
-;;       (background dark))
-;;      (:background "white")))
-;;   "Face for the highlighting of the line jumped to."
-;;   :group 'mtorus)
-;; (setq frame-background-mode 'light)
-;; 
-;; (defface mtorus-notify-highlight-face
-;;   '((((class color) (background light))
-;;      (:foreground "red"))
-;;     (((class color) (background dark))
-;;      (:foreground "green"))
-;;     (((class grayscale monochrome)
-;;       (background light))
-;;      (:foreground "black"))
-;;     (((class grayscale monochrome)
-;;       (background dark))
-;;      (:background "white")))
-;;   "Face for the highlighting the current entry in the notify window."
-;;   :group 'mtorus)
-;;   
-;; 
+ 
+(defface mtorus-highlight-face
+  '((((class color) (background light))
+     (:background "khaki"))
+    (((class color) (background dark))
+     (:background "sea green"))
+    (((class grayscale monochrome)
+      (background light))
+     (:background "black"))
+    (((class grayscale monochrome)
+      (background dark))
+     (:background "white")))
+  "Face for the highlighting of the line jumped to."
+  :group 'mtorus-display)
+(setq frame-background-mode 'light)
+
+(defface mtorus-notify-highlight-face
+  '((((class color) (background light))
+     (:foreground "red"))
+    (((class color) (background dark))
+     (:foreground "green"))
+    (((class grayscale monochrome)
+      (background light))
+     (:foreground "black"))
+    (((class grayscale monochrome)
+      (background dark))
+     (:background "white")))
+  "Face for the highlighting the current entry in the notify window."
+  :group 'mtorus-display)
+  
+
 ;; (defun mtorus-insert-status (currentry-s)
 ;;   "Insert a description of the torus in the current buffer.
 ;; This is used inside the notify popup window and displays all ring
@@ -319,6 +323,64 @@
 ;;                      'mtorus-unhighlight-current-line))))
 
 
+;;; test code
+
+(defun mtorus-display-mtorus ()
+  (interactive)
+  (require 'tree-widget)
+  (with-current-buffer (get-buffer-create "*MTorus*")
+    (erase-buffer)
+    (eval 
+     `(widget-create
+       'tree-widget
+       :open t
+       :format "%v"
+       :tag "MTorus Universe"
+       ,@(mapcar #'(lambda (wid) `',wid) (mtorus-tree-widget-structure 'mtorus-universe))))
+    (use-local-map widget-keymap)
+    (display-buffer (current-buffer))))
+
+(defun mtorus-tree-widget-structure (elem &optional neighborhood)
+  (let* ((neighborhood (or neighborhood
+                           'children))
+         (topo (mtorus-topology-neighborhood 'standard neighborhood elem))
+         (graph
+          (mapcar
+           #'(lambda (elem)
+               `(tree-widget
+                 :open t
+                 ,@(and (eq elem mtorus-current-element) '(:format "%[%v%]"))
+                 ,@(and (eq elem mtorus-current-element) '(:button-face mtorus-highlight-face))
+                 :tag ,(format "%s" (mtorus-element-get-name elem))
+
+                 ,@(let ((more (mtorus-topology-standard-children elem)))
+                     (and more
+                          (not (eq elem 'mtorus-universe))
+                          (mtorus-tree-widget-structure elem)))))
+           topo)))
+    graph))
+
+(defun mtorus-display-siblings ()
+  "Displays current element's siblings in the modeline."
+  (interactive)
+  (let* ((varfun (eval
+                  (cdr-safe (assoc 'element mtorus-display-variable-transformation-map))))
+         (curelt (funcall
+                  varfun mtorus-current-element))
+         (siblings (mapcar varfun (mtorus-topology-standard-siblings mtorus-current-element)))
+         (msgstr (with-temp-buffer
+                   (insert (mapconcat #'identity siblings " "))
+                   (goto-char (point-min))
+                   (save-match-data
+                     (and (search-forward curelt nil t)
+                          (set-text-properties (match-beginning 0) (match-end 0) '(face mtorus-highlight-face))
+                          ;;(replace-match (concat ">" curelt))
+                          )
+                     (buffer-string)))))
+    (cond ((fboundp 'display-message)
+           (display-message 'no-log msgstr))
+          (t
+           (message msgstr)))))
 
 
 
@@ -327,4 +389,4 @@
 
 (provide 'mtorus-display)
 
-;;; mtorus-element.el ends here
+;;; mtorus-display.el ends here

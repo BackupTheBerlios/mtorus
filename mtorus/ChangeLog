@@ -1,3 +1,24 @@
+2004-08-05  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el:
+	- navigation is now entirely compatible to mtorus 1.6
+	(use mtorus-aunt-element and mtorus-uncle-element to browse
+	the parents' siblings) -- you have to `select' (mtorus-select-element)
+	the element though
+	- corrected some of the documentation strings
+
+	* mtorus-type.el
+	- added attach code for mtorus-1.6-esque navigation
+	- removed attach code to mtorus-topology.el
+
+	* mtorus-topology.el
+	- cleaned up the topology functions a little
+	- added more generic funs (provide kind of currying)
+	- added attach code from mtorus-type.el here and
+	installed ugly, non-general attach code functions to make the
+	torus a little more stable
+
+
 2004-08-02  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* all files: established some GNU Emacs compatibility
