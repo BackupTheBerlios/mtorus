@@ -1,5 +1,5 @@
 ;;; mtorus-rings.el --- ring functions
-;; $Id: mtorus-rings.el,v 1.2 2004/04/15 21:45:37 hroptatyr Exp $
+;; $Id: mtorus-rings.el,v 1.3 2004/04/23 13:05:32 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: 2004/04/03
@@ -37,7 +37,7 @@
 ;; Customizable User Settings ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defgroup mtorus-rings nil
-  ""
+  "The rings of the torus."
   :tag "MTorus"
   :prefix "mtorus-rings-"
   :group 'mtorus)
@@ -129,17 +129,6 @@ Created rings are stored in `mtorus-rings'."
               (put r-symbol prop val)))
           r-spec)
     r-symbol))
-;;   (if (mtorus-ringp ring-name)
-;;       (mtorus-message
-;;        (format "A ring with name \"%s\" already exists."
-;;                ring-name))
-;;     (let* ((content (mtorus-initial-ring-contents ring-name))
-;;           (ring (cons ring-name (list content))))
-;;       (setq mtorus-torus
-;;             (append mtorus-torus
-;;                     (list ring))))
-;;     (mtorus-switch-to-ring ring-name t)))))
-
 ;;;possible calls:
 ;;(mtorus-rings-create-ring 'test-ring :name "Test Ring" :description "Just to test some" :parent 'mtorus-universe)
 ;;(mtorus-rings-create-ring :name "Test Ring" :description "Just to test some" :parent 'mtorus-universe)
@@ -155,14 +144,7 @@ Created rings are stored in `mtorus-rings'."
                     (remove ring mtorus-rings))
               (makunbound ring)))
   ring)
-;;   (interactive)
-;;   (let ((rname (or ring-name (mtorus-ask-ring))))
-;;     (if (not (mtorus-special-ringp rname))
-;;         (if (y-or-n-p (format "delete ring \"%s\"? " rname))
-;;             (setq mtorus-torus
-;;                   (delete* rname mtorus-torus :key 'car
-;;                            :test 'equal)))
-;;       (mtorus-message "can't delete special rings"))))
+;;;possible calls:
 ;;(mtorus-rings-delete-ring 'test-ring)
 
 
@@ -184,16 +166,28 @@ Created rings are stored in `mtorus-rings'."
            (and r-name
                 (put r-symbol 'name r-name))
            r-symbol))))
-;;   (interactive)
-;;   (let* ((rname (or ring-name (mtorus-ask-ring)))
-;;         (nname (or new-name (read-string
-;;                              (format "rename \"%s\" to: " rname)))))
-;;     (if (not (mtorus-special-ringp rname))
-;;         (setcar (assoc rname mtorus-torus) nname)
-;;       (mtorus-message "can't rename special rings"))))
+;;; possible calls:
 ;;(mtorus-rings-rename-ring 'test-ring :name "TTTTESSSST RING" :description "just changed")
 
 
+
+
+;;;finding rings
+
+(defun mtorus-rings-ring-name (ring)
+  "Returns the name of RING."
+  (get ring 'name))
+(defun mtorus-rings-ring+name (ring)
+  "Returns the cons \(RING . name)."
+  (cons ring (mtorus-rings-ring-name ring)))
+(defun mtorus-rings-ring-by-name (name)
+  "Finds the ring symbol in `mtorus-rings' of the ring
+with the name NAME."
+  (car-safe
+   (rassoc name
+           (mapcar 'mtorus-rings-ring+name
+                   mtorus-rings))))
+;; (mtorus-rings-ring-by-name "test2")
 
 
 

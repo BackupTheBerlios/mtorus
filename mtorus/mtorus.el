@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.4 2004/04/04 23:09:09 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.5 2004/04/23 13:05:32 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -136,8 +136,7 @@
 ;;; Code:
 (eval-when-compile
   (require 'cl)
-  (require 'timer)
-  )
+  (require 'timer))
 
 (require 'mtorus-rings)
 
@@ -152,7 +151,7 @@ behavior of the functions to your habits.  Hopefully it is possible to
 find good settings for many people."
   :tag "MTorus"
   :link '(url-link :tag "Home Page"
-                   "http://www.skamphausen.de/software/skamacs/")
+                   "http://mtorus.berlios.de")
   :link '(emacs-commentary-link
           :tag "Commentary in mtorus.el" "mtorus.el")
   :prefix "mtorus-"
@@ -282,7 +281,7 @@ always uses the real buffer list.  It skips all buffers that
   :group 'mtorus)
 
 ;; Variables
-(defvar mtorus-torus nil
+(defvar mtorus-torus nil  ;; obsolete?
   "Alist containing the rings of markers.
 The main data structure of MTorus:
  \(\(\"ring1\" \(\marker1
@@ -328,6 +327,28 @@ For convenience:
 
 The universe will dynamically extend when you try to create siblings
 for it (as we cannot represent a real universe).")
+
+
+;;; some hooks
+(defcustom mtorus-clear-universe-hook
+  '(mtorus-cleanse-universe)
+  "Hook run when the universe is cleared.
+
+A value suited for this is `mtorus-cleanse-universe'."
+  :group 'mtorus)
+
+(defcustom mtorus-ring-exists-p-hook nil
+  "Hook run when the trying to add an existing ring to
+the universe."
+  :group 'mtorus)
+
+(defcustom mtorus-new-ring-hook nil
+  "Hook run after a new ring has been successfully
+added to the universe."
+  :group 'mtorus)
+
+
+
 
 
 
@@ -396,12 +417,76 @@ for it (as we cannot represent a real universe).")
 (defun mtorus-universe-init ()
   "This inits the universal ring `mtorus-universe'."
   (interactive)
-  (setq mtorus-universe nil)
-  (mtorus-maybe-install-kill-hook)
+  (mtorus-clear-universe)
+  ;;(mtorus-maybe-install-kill-hook)
   (run-hooks 'mtorus-init-hook))
+;;(defalias 'mtorus-init 'mtorus-universe-init)
+
+(defun mtorus-clear-universe (&optional universe)
+  "This creates a new clean universe.
+Note a universe is just a set of rings.
+The rings are not paired to a torus.
+
+The auto-rings will be set up by running 
+`mtorus-auto-ring-setup-hook'"
+  (interactive)
+  (let ((universe (or mtorus-universe)))
+    (setq mtorus-universe nil))
+  (run-hooks 'mtorus-clear-universe-hook 'mtorus-auto-ring-setup-hook))
+
+(defun mtorus-cleanse-universe (&optional universe)
+  "Finds and deletes rings from the ring-stack `mtorus-rings'
+that are not in the universe."
+  (mapc (lambda (ring)
+          (and (not (mtorus-ring-in-universe-p ring))
+               (mtorus-rings-delete-ring ring)))
+        mtorus-rings))
+
 
 
 ;; Rings
+(defun mtorus-ring-in-universe-p (ring &optional universe)
+  "Checks whether RING is an element of `mtorus-universe'
+Optional argument UNIVERSE is ignored atm."
+  (let ((universe (or mtorus-universe)))
+    (assoc ring universe)))
+
+(defun mtorus-add-ring-to-universe (ring &optional parent)
+  "Adds RING to `mtorus-universe' with RING being a child of PARENT."
+  (let* ((universe (or mtorus-universe))
+         (parent (or parent
+                     universe))
+         (add-ring))
+    (if (equal parent 'mtorus-universe)
+        (setq add-ring (list ring))
+      (and (mtorus-ring-in-universe-p parent)
+           (setq add-ring (cons parent ring))))
+    (and add-ring
+         (add-to-list 'mtorus-universe add-ring)
+         (run-hooks 'mtorus-add-ring-hook))))
+
+(defun mtorus-new-ring-2 (ring-name)
+  "Create a ring with name RING-NAME (asked from user).
+If `mtorus-init-rings-emtpy' is non nil a marker at the current point
+is created and pushed on the list, otherwise the ring stays empty for
+the moment.  Makes the new ring the current ring.
+
+It won't create a ring with a name that already exists."
+  (interactive "sRing name: ")
+  (if (mtorus-ring-in-universe-p
+       (mtorus-rings-ring-by-name ring-name))
+      (prog1
+          (mtorus-message
+           (format "A ring with name \"%s\" already exists."
+                   ring-name))
+        (run-hooks 'mtorus-ring-exists-p-hook))
+    (let* ((parent 'mtorus-universe)
+           (ring (mtorus-rings-create-ring :name ring-name :description "User defined mtorus-ring" :parent parent)))
+      (mtorus-add-ring-to-universe ring parent)
+      (run-hook 'mtorus-new-ring-hook)
+      ring)))
+
+
 (defun mtorus-new-ring (ring-name)
   "Create a ring with name RING-NAME (asked from user).
 If `mtorus-init-rings-emtpy' is non nil a marker at the current point
@@ -420,6 +505,8 @@ It won't create a ring with a name that already exists."
             (append mtorus-torus
                     (list ring))))
     (mtorus-switch-to-ring ring-name t)))
+
+
 
 (defun mtorus-delete-ring (&optional ring-name)
   "Delete the ring with name RING-NAME.
@@ -532,6 +619,7 @@ current's ring name is equal to `mtorus-buffer-list-name'."
       (mtorus-blist-next)
     (mtorus-rotate-entries 0 1))
   (mtorus-jump-current-marker))
+(defalias 'mtorus-next-entry 'mtorus-next-marker)
 
 (defun mtorus-prev-marker ()
   (interactive)
@@ -539,6 +627,7 @@ current's ring name is equal to `mtorus-buffer-list-name'."
       (mtorus-blist-prev)
     (mtorus-rotate-entries 0 -1))
   (mtorus-jump-current-marker))
+(defalias 'mtorus-prev-entry 'mtorus-prev-marker)
 
 (defun mtorus-jump-current-marker ()
   "Move point to the point and buffer defined by current marker."
