@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.19 2004/08/11 18:53:59 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.20 2004/08/12 07:14:34 ska Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.1 $Revision: 1.19 $"
+(defconst mtorus-version "2.1 $Revision: 1.20 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -345,6 +345,8 @@ This is an ALPHA feature."
 (defvar mtorus-notify-popup-timer nil
   "The timer used to remove the popup window.")
 
+(defvar mtorus-read-string-history nil
+  "The history to use when asking the user.")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -623,8 +625,10 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
              "Type: "
              (mtorus-type-obarray) nil t)))
           (name
-           (read-string "Name: "
-                        (mtorus-default-name type))))
+           (read-string
+            (format "Name (%s): " (mtorus-default-name type))
+            nil 'mtorus-read-string-history
+            (mtorus-default-name type))))
      (list type name)))
   (run-hook-with-args 'mtorus-create-element-pre-hook type name)
   (let ((element
