@@ -1,3 +1,20 @@
+2004-08-02  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el:
+	- added basic interactive functions for detaching
+	- abstracted message display
+
+	* mtorus-display.el
+	- new function container for all GUI functions
+
+	* mtorus-element.el
+	- backend functions for detaching
+
+	* mtorus-topology.el
+	- added functions to define/undefine arbitrary relations
+	- added find functions to locate an element on the torus topology
+
+
 2004-08-01  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus.el:

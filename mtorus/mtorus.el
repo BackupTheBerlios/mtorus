@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.13 2004/08/01 14:09:38 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.14 2004/08/02 00:22:15 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.0 $Revision: 1.13 $"
+(defconst mtorus-version "2.0 $Revision: 1.14 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -155,10 +155,17 @@
   (require 'cl)
   (require 'timer))
 
+;; aux stuff
 (require 'mtorus-utils)
+
+;; backend
 (require 'mtorus-topology)
 (require 'mtorus-type)
 (require 'mtorus-element)
+
+;; GUI functions
+(require 'mtorus-display)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Customizable User Settings ;;
@@ -565,8 +572,10 @@ Unlike mtorus-1.6 elements duplicate names are allowed."
           (format "Manually generated mtorus element of type %s." type))))
     (mtorus-element-register element)
     (run-hook-with-args 'mtorus-create-element-post-hook element)
-    (message "new element: %s"
-             element)
+    (mtorus-display-message
+     message
+     :element element
+     :message '("new element: %s" element))
     element))
 
 ;; this is just a wrapper function to mtorus-create-element
@@ -617,8 +626,103 @@ elements to only those of a certain type."
   (run-hook-with-args 'mtorus-delete-element-pre-hook element)
   (mtorus-element-delete element)
   (run-hook-with-args 'mtorus-delete-element-post-hook element)
-  (message "deleted: %s" element)
+  (mtorus-display-message
+   message
+   :element element
+   :message '("deleted: %s" element))
   element)
+
+(defun mtorus-detach-element (element1 element2 &optional type-filter)
+  "Detach an mtorus element ELEMENT1 from ELEMENT2."
+  (interactive
+   (let* ((el1 (let* ((table (mtorus-element-obarray+names 'all))
+                     (curel (car (rassoc mtorus-current-element table))))
+                (cdr
+                 (assoc (completing-read
+                         "Detach element: "
+                         table nil t curel)
+                        table))))
+          (rels (mapcar #'car (mtorus-topology-find 'standard el1)))
+          (el2 (let* ((eobarr (mtorus-element-obarray
+                               #'(lambda (element type)
+                                   (when
+                                       (member element
+                                               rels)
+                                     t))))
+                      (table 
+                       (mtorus-element-obarray-names
+                        eobarr
+                        "%s (%s)"
+                        '(mtorus-element-get-name element) 'element))
+                      (curel (car (rassoc mtorus-current-element table))))
+                 (cdr
+                  (assoc (completing-read
+                          "From element: "
+                          table nil t curel)
+                         table)))))
+     (list el1 el2)))
+  (run-hook-with-args 'mtorus-detach-element-pre-hook element1 element2)
+  (mtorus-element-detach element1 element2)
+  (run-hook-with-args 'mtorus-detach-element-post-hook element1 element2)
+  (mtorus-display-message
+   message
+   :element element1
+   :otherelement element2
+   :message '("%s detached from %s" element otherelement))
+  element1)
+
+
+(defun mtorus-detach-element-relation (element1 element2 relation &optional type-filter)
+  "Detach an mtorus element ELEMENT1 from ELEMENT2 with RELATION."
+  (interactive
+   (let* ((el1 (let* ((table (mtorus-element-obarray+names 'all))
+                     (curel (car (rassoc mtorus-current-element table))))
+                (cdr
+                 (assoc (completing-read
+                         "Detach element: "
+                         table nil t curel)
+                        table))))
+          (rels (mapcar #'car (mtorus-topology-find 'standard el1)))
+          (el2 (let* ((eobarr (mtorus-element-obarray
+                               #'(lambda (element type)
+                                   (when
+                                       (member element
+                                               rels)
+                                     t))))
+                      (table 
+                       (mtorus-element-obarray-names
+                        eobarr
+                        "%s (%s)"
+                        '(mtorus-element-get-name element) 'element))
+                      (curel (car (rassoc mtorus-current-element table))))
+                 (cdr
+                  (assoc (completing-read
+                          "From element: "
+                          table nil t curel)
+                         table))))
+          (rel (let* ((rels (mapcar #'(lambda (rel)
+                                        (cons (format "%s" (cdr rel)) (cdr rel)))
+                                    (remove-if-not
+                                     #'(lambda (rel)
+                                         (eq (car rel) el2))
+                                     (mtorus-topology-find 'standard el1)))))
+                 (cdr
+                  (assoc (completing-read
+                          "Relation: "
+                          rels nil t)
+                         rels)))))
+     (list el1 el2 rel)))
+  (run-hook-with-args 'mtorus-detach-element-pre-hook element1 element2)
+  (mtorus-element-detach-relation element1 element2 relation)
+  (run-hook-with-args 'mtorus-detach-element-post-hook element1 element2)
+  (mtorus-display-message
+   message
+   :element element1
+   :otherelement element2
+   :message '("%s detached from %s" element otherelement))
+  element1)
+
+
 
 
 
@@ -784,7 +888,7 @@ Note this is invariant under the current topology."
   "Fun used to determine the parent of a torus element."
   :group 'mtorus
   :type 'function-name)
-(defcustom mtorus-child-ring-function #'car
+(defcustom mtorus-child-element-function #'car
   "Fun used to determine the child a torus element."
   :group 'mtorus
   :type 'function-name)
@@ -833,7 +937,7 @@ See `mtorus-next-element-function' on how to determine this."
 (defun mtorus-determine-child-element (element)
   "Determines the previous element on the current torus.
 See `mtorus-prev-element-function' on how to determine this."
-  (let* ((child (funcall mtorus-parent-element-function
+  (let* ((child (funcall mtorus-child-element-function
                           (mtorus-topology-standard-children element))))
     child))
 
@@ -847,18 +951,24 @@ This is done with respect to the current topology."
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-next-element curelt)))
     (mtorus-element-set-current newelt)
-    (message "new current: %s (was: %s)"
-             mtorus-current-element
-             curelt)))
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
 (defun mtorus-prev-element ()
   "Make the previous entry on the ring the current element."
   (interactive)
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-prev-element curelt)))
     (mtorus-element-set-current newelt)
-    (message "new current: %s (was: %s)"
-             mtorus-current-element
-             curelt)))
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
 (defun mtorus-parent-element ()
   "Make the next ring on the torus the current ring.
 This is done with respect to the current topology."
@@ -866,9 +976,12 @@ This is done with respect to the current topology."
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-parent-element curelt)))
     (mtorus-element-set-current newelt)
-    (message "new current: %s (was: %s)"
-             mtorus-current-element
-             curelt)))
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
 (defun mtorus-child-element ()
   "Make the next ring on the torus the current ring.
 This is done with respect to the current topology."
@@ -876,9 +989,12 @@ This is done with respect to the current topology."
   (let* ((curelt mtorus-current-element)
          (newelt (mtorus-determine-child-element curelt)))
     (mtorus-element-set-current newelt)
-    (message "new current: %s (was: %s)"
-             mtorus-current-element
-             curelt)))
+    (mtorus-display-message
+     message
+     :element mtorus-current-element
+     :otherelement curelt
+     :message '("new current: %s (was: %s)" element otherelement))
+    newelt))
 
 
 (defun mtorus-select-current-element ()
@@ -906,9 +1022,14 @@ Selection can be done by:
   (run-hook-with-args 'mtorus-select-element-pre-hook element)
   (mtorus-element-select element)
   (run-hook-with-args 'mtorus-select-element-post-hook element)
-  (message "element: %s selected"
-           mtorus-current-element)
+  (mtorus-display-message
+   message
+   :element element
+   :message '("selected: %s" element))
   element)
+
+
+
 
 
 
@@ -1006,197 +1127,6 @@ consisting of all elements PREDICATE returned t for."
             (setq ret-list (cons (car rest) ret-list)))
         (helper ret-list (cdr rest)))))
   (helper '() l))
-
-;; GUI
-;; Code and idea highly inspired by swbuff.el by D. Ponce. Thanks!
-(defvar mtorus-notify-status-freeze nil
-  "A temporary freezed description of the current torus.
-Avoids rearrangement of the popup window every time the main data
-structure `mtorus-torus' is changed.  It's structure is similar to
-mtorus but allows for better access during the creation of the notify
-window.")
-
-(defun mtorus-notify ()
-  "Notify the user of the current status of the torus.
-This might just use the echo area or popup it's own window according
-to the settings of `mtorus-notify-method'."
-  (interactive)
-  (when (not mtorus-notify-status-freeze)
-    (setq mtorus-notify-status-freeze
-          (mtorus-freeze-torus)))
-  (cond ;; FIXME: other methods
-   ((eq mtorus-notify-method t)
-    (mtorus-notify-popup))
-   ((eq mtorus-notify-method 'popup)
-    (mtorus-notify-popup))
-   ((eq mtorus-notify-method 'echo))
-   (t))
-  (mtorus-highlight-line))
-
-(defun mtorus-freeze-torus ()
-  "Create a freezed status snapshot of `mtorus-torus'.
-This changes the torus by creating the current entry strings for all
-entries to avoid repeated calls."
-  (mapcar
-   #'(lambda (ring)
-       (let ((cringn (car ring)))
-         (cons
-          cringn
-          (list
-           (if (mtorus-special-ringp cringn)
-               (cond
-                ((string-equal cringn mtorus-buffer-list-name)
-                 (mapcar #'(lambda (buf)
-                             (with-current-buffer buf
-                               (mtorus-entry-to-string
-                ;; FIXME: good enough for GC?
-                                (point-marker))))
-                         (mtorus-buffer-list))))
-             (mapcar #'(lambda (marker)
-                         (mtorus-entry-to-string marker))
-                     (second ring)))))))
-       mtorus-torus))
-
-
-(defun mtorus-notify-popup ()
-  "Open a navigation window at the bottom of the current window.
-The upper line shows all rings and the lower line all the current
-entries in that ring.  The window will vanish on the next action taken
-or if `mtorus-notify-popup-clear-timeout' seconds go by."
-  (let ((currentry-s (mtorus-current-entry-string))
-        (window-min-height 4))
-    (with-current-buffer
-        (get-buffer-create mtorus-notify-popup-buffer-name)
-      (let ((w (or (get-buffer-window mtorus-notify-popup-buffer-name)
-                   (split-window-vertically -4))))
-        (set-window-buffer w (current-buffer))
-        ;; insert the torus description
-        (erase-buffer)
-        (mtorus-insert-status currentry-s)
-        (add-hook 'pre-command-hook
-                  'mtorus-notify-maybe-cleanup)
-        (if (timerp mtorus-notify-popup-timer)
-            (cancel-timer mtorus-notify-popup-timer))
-        (setq mtorus-notify-popup-timer
-              (run-with-timer
-               mtorus-notify-popup-clear-timeout nil
-               #'mtorus-notify-maybe-cleanup))))))
-
-(defface mtorus-highlight-face
-  '((((class color) (background light))
-     (:background "khaki"))
-    (((class color) (background dark))
-     (:background "sea green"))
-    (((class grayscale monochrome)
-      (background light))
-     (:background "black"))
-    (((class grayscale monochrome)
-      (background dark))
-     (:background "white")))
-  "Face for the highlighting of the line jumped to."
-  :group 'mtorus)
-(setq frame-background-mode 'light)
-
-(defface mtorus-notify-highlight-face
-  '((((class color) (background light))
-     (:foreground "red"))
-    (((class color) (background dark))
-     (:foreground "green"))
-    (((class grayscale monochrome)
-      (background light))
-     (:foreground "black"))
-    (((class grayscale monochrome)
-      (background dark))
-     (:background "white")))
-  "Face for the highlighting the current entry in the notify window."
-  :group 'mtorus)
-  
-
-(defun mtorus-insert-status (currentry-s)
-  "Insert a description of the torus in the current buffer.
-This is used inside the notify popup window and displays all ring
-names plus the contents of the current ring."
-  (let ((rings (mapcar 'car mtorus-notify-status-freeze))
-        (cringn (mtorus-current-ring-name))
-        entry start)
-    (while rings
-      (setq entry (car rings)
-            rings (cdr rings)
-            start (point))
-      (insert entry)
-      (when (string-equal entry cringn)
-        (set-text-properties
-         start (point) '(face mtorus-notify-highlight-face))
-        (save-excursion
-          (insert "\n")
-          (mtorus-insert-ring-description currentry-s
-           (cadr (assoc entry mtorus-notify-status-freeze)))))
-        (insert " ")
-      )))
-
-(defun mtorus-insert-ring-description (curr entries)
-  "Insert descriptions of ENTRIES in the current buffer.
-This is used inside mtorus-insert-status to insert the description of
-all the current entries."
-  ;; (message (format "%s" entries))
-  (let* (entry start)
-   (while entries
-     (setq entry (car entries)
-           entries (cdr entries)
-           start (point))
-     (insert entry)
-     (when (string-equal entry curr)
-       (set-text-properties
-        start (point) '(face mtorus-notify-highlight-face)))
-     (insert "  "))))
-   
-   
-;; Used to prevent discarding the notify window on some mouse event.
-(defalias 'mtorus-ignore 'ignore)
-
-(defun mtorus-notify-maybe-cleanup ()
-  "Function to sit on `pre-command-hook' and track successive calls
-to the cycling commands."
-  (if (memq this-command '(mtorus-next-ring
-                           mtorus-prev-ring
-                           mtorus-next-marker
-                           mtorus-prev-marker
-                           mtorus-ignore))
-      nil
-    (mtorus-notify-cleanup)
-    (if (timerp mtorus-notify-popup-timer)
-        (cancel-timer mtorus-notify-popup-timer))
-    (setq mtorus-notify-status-freeze nil)
-    (setq mtorus-notify-popup-timer nil)
-    (remove-hook 'pre-command-hook
-                 'mtorus-notify-maybe-cleanup)))
-
-(defun mtorus-notify-cleanup ()
-  "Discard the notify window."
-  (let ((w (get-buffer-window mtorus-notify-popup-buffer-name))
-        (b (get-buffer mtorus-notify-popup-buffer-name)))
-    (and w (delete-window w))
-    (and b (kill-buffer b))))
-
-;; FIXME: cleanly merge this with the notify code?
-(defun mtorus-highlight-line ()
-  "Show the line you jumped to by highlighting it."
-  (setq mtorus-highlight-extent
-        (mtorus-make-extent (mtorus-point-at-bol)
-                            (mtorus-point-at-eol)))
-  (mtorus-set-extent-face mtorus-highlight-extent
-                          'mtorus-highlight-face)
-  (add-hook 'pre-command-hook
-            'mtorus-unhighlight-line))
-
-(defun mtorus-unhighlight-line ()
-  "Remove highlighting of the current line if any."
-  (if mtorus-highlight-extent
-      (progn
-        (mtorus-delete-extent mtorus-highlight-extent)
-        (setq mtorus-highlight-extent nil)
-        (remove-hook 'pre-command-hook
-                     'mtorus-unhighlight-current-line))))
 
 
 ;; Backend Level Functions

@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.6 2004/08/01 14:09:38 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.7 2004/08/02 00:22:15 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -75,7 +75,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.6 $"
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.7 $"
   "Version of mtorus-element backend.")
 
 
@@ -396,6 +396,41 @@ not (yet?) update rings that posess this element."
   (run-hook-with-args 'mtorus-element-post-deletion-hook element)
   element)
 
+(defun mtorus-element-detach (element1 element2)
+  "Detaches ELEMENT1 from any relation it has with ELEMENT2."
+  (run-hook-with-args 'mtorus-element-pre-detachment-hook element1 element2)
+  (and (mtorus-element-p element1)
+       (mtorus-element-p element2)
+       (let ((el1rels (remove-if-not
+                       #'(lambda (rel)
+                           (eq (car rel) element2))
+                       (mtorus-topology-find 'standard element1)))
+             (el2rels (remove-if-not
+                       #'(lambda (rel)
+                           (eq (car rel) element1))
+                       (mtorus-topology-find 'standard element2))))
+         (mapc #'(lambda (rel)
+                   (mtorus-topology-undefine-relation 'standard (cdr rel) element1 element2))
+               el1rels)
+         (mapc #'(lambda (rel)
+                   (mtorus-topology-undefine-relation 'standard (cdr rel) element1 element2))
+               el2rels))
+       (run-hook-with-args 'mtorus-element-post-detachment-hook element1 element2))
+  element1)
+
+;;; REVISE ME!!!! relation is not commutative
+(defun mtorus-element-detach-relation (element1 element2 relation)
+  "Detaches ELEMENT1 from RELATION it has with ELEMENT2."
+  (run-hook-with-args 'mtorus-element-pre-detachment-hook element1 element2)
+  (and (mtorus-element-p element1)
+       (mtorus-element-p element2)
+       (mtorus-topology-undefine-relation 'standard relation element1 element2)
+       (mtorus-topology-undefine-relation 'standard relation element1 element2)
+       (run-hook-with-args 'mtorus-element-post-detachment-hook element1 element2))
+  element1)
+
+
+
  
 (defun mtorus-element-set-current (element)
   "Sets ELEMENT as current element.
@@ -423,10 +458,10 @@ This runs some hooks at the moment."
   "Makes a predicate function."
   (cond ((or (eq type-filter 'all)
              (null type-filter))
-         (lambda (type)
+         (lambda (element type)
            t))
         ((symbolp type-filter)
-         `(lambda (type)
+         `(lambda (element type)
             (eq type ',type-filter)))
         ((functionp type-filter)
          type-filter)
@@ -453,7 +488,7 @@ Optional TYPE-FILTER limits this set to only certain types."
         (element-obarray (vector)))
     (maphash #'(lambda (key val)
                  (and (some #'(lambda (pred-fun)
-                                (funcall pred-fun val))
+                                (funcall pred-fun key val))
                             filt)
                       (setq element-obarray
                             (vconcat element-obarray (vector key)))))
@@ -461,15 +496,21 @@ Optional TYPE-FILTER limits this set to only certain types."
     element-obarray))
 ;;(mtorus-element-obarray '(marker buffer))
 
+(defun mtorus-element-obarray-names (obarray &rest format)
+  "Makes an obarray from OBARRAY returning the names of the elements.
+Optional FORMAT determines the result."
+  (mapcar #'(lambda (element)
+              (let ((formspec (eval `(format ,@format))))
+                (cons formspec element)))
+          obarray))
+
 (defun mtorus-element-obarray+names (&optional type-filter)
   "Makes an obarray from `mtorus-elements' returning the names of the elements.
 Optional TYPE-FILTER limits this set to only certain types."
   (let ((eobarr (mtorus-element-obarray type-filter)))
-    (mapcar #'(lambda (elt)
-                (cons (format "%s (%s)" (mtorus-element-get-name elt) elt) elt))
-            eobarr)))
+    (mtorus-element-obarray-names eobarr "%s (%s)" '(mtorus-element-get-name element) 'element)))
 ;;(mtorus-element-obarray+names 'all)
-
+;;(mtorus-element-obarray+names #'(lambda (element type) (unless (eq element 'mtorus-universe) t)))
 
 
 

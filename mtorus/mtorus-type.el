@@ -1,5 +1,5 @@
 ;;; mtorus-type.el --- types of the mtorus
-;; $Id: mtorus-type.el,v 1.3 2004/08/01 14:09:38 hroptatyr Exp $
+;; $Id: mtorus-type.el,v 1.4 2004/08/02 00:22:15 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -53,14 +53,14 @@
   :group 'mtorus)
 
 
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-type backend.")
 
 
 (defcustom mtorus-type-methods-alist
   '((predicate . p)
-    (inherit-value . inherit-value)
-    (inherit-selection . inherit-selection))
+    (inherit-value . value)
+    (inherit-selection . select))
   "Alist of method specifiers and corresponding functions to be
 added in the form `mtorus-type-<NAME>-<METHODNAME>'.
 
@@ -83,7 +83,7 @@ essential.
 
 Note that methods just operate on a single element.
 If you intend to work on lists of elements use actions instead.
-(yet have to be implemented)"
+\(yet have to be implemented\)"
   :group 'mtorus-type)
 
 
@@ -243,33 +243,45 @@ NAME is the name of the type."
   `',(mtorus-utils-symbol-conc 'mtorus-type name))
 
 
+;;; REVISE ME!!!
+;; here we need something that allows other `backend modules' to
+;; add something like those spec pairs in e.g. mtorus-type-methods-alist
+;; and install them by those bouncer functions (just like initialization does)
+;; A revise for mtorus-alter-type is needed then!
+;; We must not mapc on the methods/hooks-alist but on the actual spec keywords
+;; that occur.
+
+;;(mtorus-utils-add-spec
+
+
+
 (defmacro mtorus-type-run-methods-bouncer ()
   "Installs some useful mtorus-element-run-HOOKS funs."
   (mapc #'(lambda (method)
             (let ((mname (car method))
                   (mfunn (cdr method)))
-            (eval
-              `(defun
-               ,(intern (format "mtorus-type-%s" mname))
-               (type &optional element)
-               ,(format "Runs mtorus-type-TYPE-%s" mfunn)
-               (let ((fun (intern (format "mtorus-type-%s-%s"
-                                          type ',mfunn))))
-                 (funcall fun element))))))
-    mtorus-type-methods-alist)
+              (eval
+               `(defun
+                 ,(intern (format "mtorus-type-%s" mname))
+                 (type &optional element)
+                 ,(format "Runs mtorus-type-TYPE-%s" mfunn)
+                 (let ((fun (intern (format "mtorus-type-%s-%s"
+                                            type ',mfunn))))
+                   (funcall fun element))))))
+        mtorus-type-methods-alist)
   t)
 (defmacro mtorus-type-run-hooks-bouncer ()
   "Installs some useful mtorus-element-run-HOOKS funs."
   (mapc #'(lambda (hook)
             (eval
-              `(defun
+             `(defun
                ,(intern (format "mtorus-type-run-%s" hook))
                (type &optional element)
                ,(format "Runs mtorus-type-TYPE-%s-function" hook)
                (let ((fun (intern (format "mtorus-type-%s-%s"
                                           type ',hook))))
                  (run-hook-with-args fun element)))))
-    (mapcar 'cdr mtorus-type-hooks-alist))
+        (mapcar 'cdr mtorus-type-hooks-alist))
   t)
 
 (mtorus-type-run-methods-bouncer)
@@ -303,29 +315,39 @@ Returns just the elements of type TYPE."
 ;;; code for attaching
 ;;; REVISE ME!!!
 
-(defmacro mtorus-topology-standard-define-element-attach (attach-to)
-  "Defines `mtorus-attach-element-to-ATTACH-TO'."
-  (let* ((attach-to
+(defmacro mtorus-topology-standard-define-element-attach (attach)
+  "Defines `mtorus-attach-element-to-ATTACH' and
+`mtorus-detach-element-from-ATTACH'."
+  (let* ((attach
           (intern
            (replace-regexp-in-string
-            "^mtorus-\\(.+\\)$" "\\1" (format "%s" attach-to))))
-         (m+attach-to
-          (mtorus-utils-symbol-conc 'mtorus attach-to))
-         (fun-name
-          (mtorus-utils-symbol-conc 'mtorus-attach-element-to attach-to)))
+            "^mtorus-\\(.+\\)$" "\\1" (format "%s" attach))))
+         (m+attach
+          (mtorus-utils-symbol-conc 'mtorus attach))
+         (attach-fun-name
+          (mtorus-utils-symbol-conc 'mtorus-attach-element-to attach))
+         (detach-fun-name
+          (mtorus-utils-symbol-conc 'mtorus-detach-element-from attach)))
     (when (mtorus-topology-p 'standard)
       (mapc
        #'eval
-       `((defun ,fun-name (element)
-           ,(format "Attaches ELEMENT to %s" attach-to)
-           ;;(add-to-list ,m+attach-to element)
-           (mtorus-topology-standard-define-children (or ,m+attach-to
-                                                         ',m+attach-to)
+       `((defun ,attach-fun-name (element)
+           ,(format "Attaches ELEMENT to %s" attach)
+           (mtorus-topology-standard-define-children (or ,m+attach
+                                                         ',m+attach)
                                                      element)
            (mtorus-topology-standard-define-parents element
-                                                    (or ,m+attach-to
-                                                        ',m+attach-to))))))
-    `',fun-name))
+                                                    (or ,m+attach
+                                                        ',m+attach)))
+         (defun ,detach-fun-name (element)
+           ,(format "Detaches ELEMENT from %s" attach)
+           (mtorus-topology-standard-undefine-children (or ,m+attach
+                                                           ',m+attach)
+                                                       element)
+           (mtorus-topology-standard-undefine-parents element
+                                                      (or ,m+attach
+                                                          ',m+attach))))))
+    `',attach-fun-name))
 
 (mtorus-topology-standard-define-element-attach mtorus-universe)
 (mtorus-topology-standard-define-element-attach mtorus-current-ring)
@@ -337,14 +359,12 @@ Returns just the elements of type TYPE."
     (let ((siblings
            (mtorus-topology-standard-children
             (car (mtorus-topology-standard-parents current)))))
-    (mapc #'(lambda (sibling)
-              (mtorus-topology-standard-define-siblings sibling element))
-          (if (functionp type-filter)
-              (funcall type-filter siblings)
-            siblings))
-    (mtorus-topology-standard-define-siblings element element))))
-
-;;(symbol-function 'mtorus-type-buffer-p)
+      (mapc #'(lambda (sibling)
+                (mtorus-topology-standard-define-siblings sibling element))
+            (if (functionp type-filter)
+                (funcall type-filter siblings)
+              siblings))
+      (mtorus-topology-standard-define-siblings element element))))
 
 
 
@@ -384,7 +404,7 @@ Returns just the elements of type TYPE."
                 (mtorus-fake-attach-element-to-current
                  mtorus-current-ring element
                  #'(lambda (elements)
-                     (mtorus-type-filter 'ring elements)))
+                     (remove 'mtorus-universe (mtorus-type-filter 'ring elements))))
                 (setq mtorus-current-element element)
                 (setq mtorus-current-ring element)))
 

@@ -1,5 +1,5 @@
 ;;; mtorus-topology.el --- topologies of the mtorus
-;; $Id: mtorus-topology.el,v 1.3 2004/08/01 14:09:38 hroptatyr Exp $
+;; $Id: mtorus-topology.el,v 1.4 2004/08/02 00:22:15 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -50,7 +50,7 @@
   :group 'mtorus)
 
 
-(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.3 $"
+(defconst mtorus-topology-version "Version: 0.1 $Revision: 1.4 $"
   "Version of mtorus-topology backend.")
 
 
@@ -140,6 +140,42 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
        (defvar ,topology-neighborhoods-name topology-neighborhoods
          ,(format "MTorus topology.\nValue indicates registered neighborhoods"))
 
+
+       ;;; find functions
+       ;; this is the find function `mtorus-topology-<TOPO>-find'
+       (defun ,(mtorus-utils-symbol-conc topology-name 'find)
+         (element)
+         ,(format "Finds all occurences of ELEMENT (along with their neighborhood type")
+         (let ((neighborhoods (mtorus-topology-neighborhoods ',name))
+               (relations))
+           (mapc #'(lambda (neighborhood)
+                     (let ((neighbors
+                            (gethash element
+                                     (eval
+                                      (mtorus-utils-symbol-conc
+                                       'mtorus-topology ',name neighborhood)))))
+                       (maphash #'(lambda (elem relation)
+                                    (add-to-list 'relations (cons elem relation)))
+                                neighbors)))
+                 neighborhoods)
+           relations))
+
+       ;; this is the find function `mtorus-topology-<TOPO>-find-relation'
+       (defun ,(mtorus-utils-symbol-conc topology-name 'find-relation)
+         (element relation)
+         ,(format "Finds all occurences of ELEMENT along with relation RELATION.")
+         (let ((neighborhoods (mtorus-topology-neighborhoods ',name))
+               (relations))
+           (let ((neighbors
+                  (gethash element
+                           (eval
+                            (mtorus-utils-symbol-conc
+                             'mtorus-topology ',name relation)))))
+             (maphash #'(lambda (elem relation)
+                          (add-to-list 'relations (cons elem relation)))
+                      neighbors))
+           relations))
+
        ;;; this is the define-mtorus-topology-<TOPO>-neighborhood macro
        (defmacro
          ,(mtorus-utils-symbol-conc 'define topology-name 'neighborhood)
@@ -161,6 +197,29 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
               'backquote
               `((defvar ,'(\, neighborhood-name) (make-hash-table :test 'equal)
                   ,(format "MTorus neighborhood."))
+
+                ;;; more general definition function of relations
+                ;; e.g. mtorus-topology-standard-define-relation
+                (defun ,(mtorus-utils-symbol-conc topology-name 'define-relation)
+                  (neighborhood element1 element2)
+                  ,(format "Defines NEIGHBORHOOD relation in %s between ELEMENT1 and ELEMENT2."
+                           topology-name)
+                  ;;(when (,(mtorus-utils-symbol-conc topology-name 'neighborhood-p) neighborhood)
+                    (funcall (mtorus-utils-symbol-conc ',topology-name 'define neighborhood)
+                             element1 element2))
+
+                ;;; more general undefinition function of relations
+                ;; e.g. mtorus-topology-standard-undefine-relation
+                (defun ,(mtorus-utils-symbol-conc topology-name 'undefine-relation)
+                  (neighborhood element1 element2)
+                  ,(format "Defines NEIGHBORHOOD relation in %s between ELEMENT1 and ELEMENT2."
+                           topology-name)
+                  ;;(when (,(mtorus-utils-symbol-conc topology-name 'neighborhood-p) neighborhood)
+                    (funcall (mtorus-utils-symbol-conc ',topology-name 'undefine neighborhood)
+                             element1 element2))
+
+
+                ;;; e.g. mtorus-topology-standard-define-siblings
                 (defun ,'(\, def-nh-relation-name) (element1 element2)
                   ,(list
                     '\,
@@ -187,6 +246,8 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                          (and ,'(\, undirected-relation-p)
                               (puthash element1 ','(\, name) neighbors-rev))
                          (puthash element2 ','(\, name) neighbors))))
+
+                ;;; e.g. mtorus-topology-standard-undefine-siblings
                 (defun ,'(\, undef-nh-relation-name) (element1 element2)
                   ,(list
                     '\,
@@ -214,6 +275,8 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                          (and ,'(\, undirected-relation-p)
                               (remhash element1 neighbors-rev))
                          (remhash element2 neighbors))))
+
+                ;;; e.g. mtorus-topology-standard-siblings
                 (defun ,'(\, neighborhood-name) (element)
                   ,(format "MTorus neighborhood in %s"
                            topology-name)
@@ -223,7 +286,7 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                             (cdr-safe
                              (mtorus-utils-parse-key ':filter properties)))))))))
            `',neighborhood-name))
-       (defalias ',(mtorus-utils-symbol-conc topology-name 'define name)
+       (defalias ',(mtorus-utils-symbol-conc topology-name 'define 'neighborhood)
          ',(mtorus-utils-symbol-conc 'define topology-name 'neighborhood))))
     `',(mtorus-utils-symbol-conc topology-name)))
 (defalias 'mtorus-define-topology 'define-mtorus-topology)
@@ -231,6 +294,8 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
   ;;; TODO: add some check if the elements passed to the funs are really registered
 
 
+
+;;; some auxiliary funs
 
 (defun mtorus-topology-p (topology)
   "Checks if TOPOLOGY is a valid mtorus-topology."
@@ -244,6 +309,43 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
                      mtorus-topologies))
         t)))
 ;;(mtorus-topology-p 'mtorus-topology-standard)
+
+
+(defun mtorus-topology-neighborhoods (topology)
+  "Return all neighborhoods currently registered with TOPOLOGY."
+  (eval (mtorus-utils-symbol-conc 'mtorus-topology topology 'neighborhoods)))
+
+
+(defun mtorus-topology-find (topology element)
+  "Return all occurences of ELEMENT in TOPOLOGY
+\(along with their neighborhood type\)."
+  (when (mtorus-topology-p topology)
+    (funcall (mtorus-utils-symbol-conc 'mtorus-topology topology 'find) element)))
+
+(defun mtorus-topology-find-relation (topology element relation)
+  "Return all occurences of ELEMENT in TOPOLOGY with
+neighborhood type RELATION."
+  (when (mtorus-topology-p topology)
+    (funcall (mtorus-utils-symbol-conc 'mtorus-topology topology 'find) element)))
+
+(defun mtorus-topology-define-relation (topology neighborhood element1 element2)
+  "Defines NEIGHBORHOOD relation in TOPOLOGY between ELEMENT1 and ELEMENT2."
+  (when (mtorus-topology-p topology)
+    (funcall
+     (mtorus-utils-symbol-conc 'mtorus-topology topology 'define-relation)
+     neighborhood element1 element2)))
+
+(defun mtorus-topology-undefine-relation (topology neighborhood element1 element2)
+  "Defines NEIGHBORHOOD relation in TOPOLOGY between ELEMENT1 and ELEMENT2."
+  (when (mtorus-topology-p topology)
+    (funcall
+     (mtorus-utils-symbol-conc 'mtorus-topology topology 'undefine-relation)
+     neighborhood element1 element2)))
+
+
+
+
+
 
 
 
@@ -293,17 +395,10 @@ argument and returns a `neighborhood', i.e. an alist of \(neighborhood-keyword "
 (mtorus-topology-initialize)
 
 
-
 (defcustom mtorus-default-topology 'mtorus-topology-standard
   "Topology inherited to all newly created elements."
   :group 'mtorus-element)
 
-
-;;; some auxiliary funs
-
-(defun mtorus-topology-neighborhoods (topology)
-  "Return all neighborhoods currently registered with TOPOLOGY."
-  (eval (mtorus-utils-symbol-conc 'mtorus-topology topology 'neighborhoods)))
 
 
 
