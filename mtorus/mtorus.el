@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.2 2004/04/03 23:15:41 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.3 2004/04/04 17:01:13 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -293,6 +293,67 @@ The main data structure of MTorus:
 
 Positions are stored as markers so that they keep in place when
 altering the contents of the buffer.")
+;;; Proposal for new mtorus structure:
+;; - mtorus is just a list of rings
+;; - rings are symbols of their own having the markers/buffers 
+;;   as their value
+;; - ring properties are saved in the object-plist of `ring-symbol'
+;;
+;;; Proposal for even more abstract mtori ;)
+;; - the mtorus itself is a ring holding rings in it (so it's not
+;;   a parent of a set of rings but a sibling
+;;   - this would make possible to have more than just one torus
+;;     or even a 3-torus (a torus that has a set of tori as its rings)
+;;
+;;;; i will incorporate these proposals parallely in this code - hroptatyr
+;;
+;;; thus here we go:
+(defvar mtorus-universe nil
+  "This is the universe, i.e. a torus which cannot have siblings.
+
+For convenience:
+- some rings form a torus (the elements of the torus are called rings)
+- some tori form an overtorus (the overtorus elements are tori then)
+- we don't distinguish between torus and overtorus, as it does not
+  matter whether the rings of the torus are tori or elementary rings
+- a ring shall be a list of either rings or markers/buffers
+- a sibling of a ring is another element of the torus of the ring
+- a sibling of a torus is a sibling of the torus seen as ring
+- the parent of a ring is the torus having this ring as element
+- the parent of a torus is the parent of this torus seen as ring
+- there is exactly one ring that has no parents nor siblings:
+  the universe.
+
+The universe will dynamically extend when you try to create siblings
+for it (as we cannot represent a real universe).")
+
+
+(defvar mtorus-auto-rings nil
+  "Alist containing the automatically created rings (formerly known
+as special rings).
+
+This alist should be of the form:
+ \(\(ring-symbol :name ring-name \[:creator ring-creation-function]
+               :parent rings-parent-torus))
+
+The keywords in detail:
+:name should be a string name of this ring
+:creator should be a function that creates this ring
+  if this keyword is omitted mtorus-ar-create-`ring-symbol' is attempted
+  to be used
+:parent is a parent of this ring
+  if this keyword is omitted `mtorus-universe' will be used
+  (note: `mtorus-universe' is always a valid parent).
+
+With every auto-ring the following hooks are created:
+`ring-symbol'-create-pre-hook -- hook run before creating this ring.
+`ring-symbol'-create-post-hook -- hook run after creation of this ring
+`ring-symbol'-delete-pre-hook -- hook run before deleting this ring
+`ring-symbol'-delete-post-hook -- hook run after deletion of this ring
+
+Each of the auto-rings will have a property '(auto-ring t) in its
+object-plist.")
+
 
 
 ;;; Compatibilty:
@@ -355,6 +416,12 @@ altering the contents of the buffer.")
   (setq mtorus-torus nil)
   (mtorus-new-ring mtorus-buffer-list-name)
   (mtorus-maybe-install-kill-hook)
+  (run-hooks 'mtorus-init-hook))
+
+(defun mtorus-universe-init ()
+  "This inits the universal ring `mtorus-universe'."
+  (interactive)
+  (setq mtorus-universe nil)
   (run-hooks 'mtorus-init-hook))
 
 
@@ -902,6 +969,14 @@ By convention special ring names begin with a '*'."
     (add-hook 'kill-emacs-hook
               'mtorus-quit)))
 
+
+;;; Future code:
+(defvar mtorus-test-ring nil
+  "Test ring for test purposes.")
+(put 'mtorus-test-ring 'autoring t)
+(get 'mtorus-test-ring 'autoring)
+(object-plist 'mtorus-test-ring)
+
 (provide 'mtorus)
 
-;;; newtorus.el ends here
+;;; mtorus.el ends here
