@@ -11,9 +11,9 @@ to obtain your version.
 
 For those who rather stick to GNU arch use
 
-=tla register-archive hroptatyr@hlidskjalf.de--arch http://www.hlidskjalf.de/hroptatyr@hlidskjalf.de--arch=
+=tla register-archive hroptatyr@users.berlios.de--mtorus http://mtorus.berlios.de/archive=
 <br/>
-=tla get -A hroptatyr@hlidskjalf.de--arch mtorus--dev--1.0 mtorus=
+=tla get -A hroptatyr@users.berlios.de--mtorus mtorus--dev--1.0 mtorus=
 
 
 Note that current CVS/arch contains a very alpha version of mtorus.
