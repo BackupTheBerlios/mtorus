@@ -1,4 +1,4 @@
 #!/bin/sh
 
-rsync -vruPptlaC --exclude "semantic.cache" --exclude="{arch}" --exclude ".arch-ids" /homes/algebra/freundt/mylisp/web.mtorus.berlios/ hornet.berlios.de:/home/groups/mtorus/htdocs/
+rsync -vruPptlaC --exclude "semantic.cache" --exclude="{arch}" --exclude ".arch-ids" --exclude "CVS" /homes/algebra/freundt/mylisp/web.mtorus.berlios/ hornet.berlios.de:/home/groups/mtorus/htdocs/
 ssh hornet.berlios.de chmod -R g+rwX /home/groups/mtorus/htdocs

@@ -2,25 +2,69 @@
 #style Wiki/styles/mtorus.css
 
 
-** The new frontend
+* Documentation
+
+This is a rather detailed documentation sketch.
+You may want to see it as our mnemonic to the stuff we've hacked so far.
+
+In the near term future there will also be a texinfo documentation.
+
+- [[DetailedDescription#whatis][What is MTorus]]
+- [[DetailedDescription#backend][The MTorus backend]]
+- [[DetailedDescription#types][The MTorus types]]
+- [[DetailedDescription#elements][The MTorus elements]]
+- [[DetailedDescription#topologies][The MTorus topology]]
+
+
+#whatis
+** What is MTorus
+
+MTorus lets you work with several groups of buffers,
+each group being a separate ring.
+This grouping can be used to form logically united sets of buffers.
+
+There could be a group for quick edit of the emacs configuration files 
+while you're actually working on some (Ruby/Perl/whatever-) program
+or it could be all the headers of your C project
+while all the .c-files make up another group.
+
+Whatever you can think of.
+You could even make different parts of your buffers (point positions)
+show up in different groups like when one set of functions spread
+throughout one (or more) files is responsible for one specific task
+or like working on a chapter in a <nowiki>LaTeX</nowiki>-document
+while defining some macros at the top of the file.
+
+Choosing another element in such a group is done by actually cycling
+through the group (like with e.g. the kill-ring).
+And since we can cycle in the `other' direction through a collection
+of those rings we are using a Torus here.
+(A "group" will usually be referred to as a "ring" from now.)
+
+Of course this is just a basic description of what MTorus _can_ do. :)
+
+*** The new concept
+
+The new conception allows to create more types than these basic ones
+we've discussed so far.
+For compatibility (what compatability?) reasons and sticking to habits
+we have code on-board to predefine the types you already know
+(rings, buffers and markers).
 
 Basically we decided (and I'm carefully doing anything possible) to 
 keep as much stuff as possible from the MTorus 1.6 Revision (which has been
-chosen to be the revision to fork off.
+chosen to be the revision to fork off).
 
-At the moment, when implementing the division between frontend and backend
-I personally like to use the two-files-in-one method to keep the code working
-as much as possible during development.
+Part of the new concept is the division of MTorus into a frontend
+(which is usable and usually just seen by the user) and a backend.
+The backend consists of different modules that provide the actual
+functionality to MTorus.
 
-Thus you will find the usage of new features only if they are congruent to
-the MTorus 1.6 code.
+I really hope to see some contribution in form of other useful modules, though :)
 
 
-** The new backend
-
-If you carefully examine the cvs diffs at berlios.de you will probably have noticed 
-that the current mtorus backend (mtorus-element.el) is already the second approach
-to establish a more abstract handling of the contents of an mtorus.
+#backend 
+** The backend in detail
 
 The first new thing you will notice is that in former times an mtorus consisted
 of two categories of basic types: Namely rings and some other category usually
@@ -28,22 +72,53 @@ seen as the elements of the rings (buffers/markers).
 
 However we got rid of this and implemented a more abstract view of this.
 Currently there are elements only plus one specially treated symbol acting as
-container: the mtorus-universe (available through the variable `mtorus-elements').
+container: the mtorus-universe.
 
 Actually this container is an element itself (namely one of type `ring'), but for
 bootstrapping issues it is existent before any other element exists.
 It is added to itself once it comes to initialization.
 
-The reason for this new second approach is that I realized during implementation
-of the new abstract torus handling that adding rings to the torus and adding elements
-to a ring is basically the same.
+You eventually want to bootstrap manually, this can be done by
 
-The new MTorus backend will consist of merely handlers for MTorus elements
-and handlers for MTorus types. 
-Any MTorus element is of a certain type, classifying this element and providing 
-thus (equal) means (for equal types) to access the functionality of the element.
+=M-x mtorus-element-initialize RET=
+
+To learn more about elements, see [[DetailedDescription#elements][The MTorus elements]]
+
+<br/>
+
+On the other hand, you may freely define the _type_ of an element.
+As mentioned before there are predefined types you can initialize by
+
+=M-x mtorus-type-initialize RET=
+
+Any MTorus element is of a certain type, classifying this element.
+Types thus provide (equal) means (for equal types) to access the functionality of the element.
+See [[DetailedDescription#types][The MTorus types]] for more on types.
+
+<br/>
+
+Also, the way of arranging elements within the torus has been completely revised.
+It's rather abstractly done with the concept of _topologies_.
+You can have more than one topology of course and there is a predefined one
+which you can initialize by
+
+=M-x mtorus-topology-initialize RET=
+
+Any topology defines neighborhoods for given elements specifying
+which elements are `next' to a given one.
+The especially new about this concept is that you can `detach' elements
+from their current ring or whatever and attach it to some other ring.
+
+You may want to see the torus as three-step mechanism to actually achieve
+something you can navigate on:
+1. First you choose some objects from the list of all objects and declare them mtorus-elements.
+1. Then you specify the types of these elements in order to equip the element with some functionality.
+1. Finally you arrange your chosen elements to some network-esque structure that you can navigate on.
+
+See [[DetailedDescription#topologies][The MTorus topology]] for more on topologies.
 
 
+#types
 ** The MTorus types
 
 MTorus types are yet to be defined.
@@ -70,8 +145,8 @@ currently available features.
 
 At the moment following hooks are predefined:
 - (predicate . p)
-- (pre-addition . pre-addition-funs)
-- (post-addition . post-addition-funs)
+- (pre-creation . pre-creation-funs)
+- (post-creation . post-creation-funs)
 - (pre-deletion . pre-deletion-funs)
 - (post-deletion . post-deletion-funs)
 - (pre-selection . pre-selection-funs)
@@ -141,6 +216,7 @@ Almost the same as marker, but does not save a position in the buffer
 but the buffer itself.
 
 
+#elements
 ** The MTorus elements
 
 Once you have created some types you can start creating elements using these types.
@@ -169,6 +245,7 @@ At the moment it's uncertain how the hash-table-entries look like.
 At least for every bound element that is in use there's a hash-key.
 
 
+#topologies
 ** The MTorus topology
 
 We use a rather straightforward network/graph structure to induce a graph
@@ -218,6 +295,10 @@ Topology sketch:
 Furthermore it is obvious that relative elements does not necessarily
 have to be distinct, i.e. it is possible to form networks where the
 aunt of an element is its brother.
+
+*** Auto-Attaching
+
+*** Orders
 
 
 
