@@ -1,5 +1,5 @@
 ;;; mtorus-element.el --- elements of the mtorus
-;; $Id: mtorus-element.el,v 1.2 2004/07/01 23:57:27 hroptatyr Exp $
+;; $Id: mtorus-element.el,v 1.3 2004/07/20 23:01:42 hroptatyr Exp $
 ;; Copyright (C) 2004 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -77,9 +77,9 @@
   :group 'mtorus)
 
 
-(defconst mtorus-element-version "Version: 0.1 $Revision: 1.2 $"
+(defconst mtorus-element-version "Version: 0.1 $Revision: 1.3 $"
   "Version of mtorus-element backend.")
-(defconst mtorus-type-version "Version: 0.1 $Revision: 1.2 $"
+(defconst mtorus-type-version "Version: 0.1 $Revision: 1.3 $"
   "Version of mtorus-element backend.")
 
 (defvar mtorus-elements-hash-table 'mtorus-elements
@@ -400,8 +400,8 @@ the according values in PROPERTIES."
   (mtorus-define-element-type buffer :predicate bufferp)
   (mtorus-define-element-type marker :predicate markerp))
 
-;;(mtorus-type-buffer-p 'mtorus-universe)
-;;(mtorus-type-ring-p 'mtorus-universe)
+;;(mtorus-type-buffer-p-function 'mtorus-universe)
+;;(mtorus-type-ring-p-function 'mtorus-universe)
 
 
 
@@ -513,8 +513,8 @@ Created elements are stored in `mtorus-elements' for reference."
   (let* ((keylist (append mtorus-element-mandatory-keywords
                           mtorus-element-optional-keywords
                           mtorus-element-additional-keywords))
-         (e-spec (mtorus-element-parse-spec element-spec keylist
-                                            mtorus-element-parse-unsupported-keywords))
+         (e-spec (mtorus-utils-parse-spec element-spec keylist
+                                          mtorus-element-parse-unsupported-keywords))
 
          ;;; abstract this
          (e-type (or (cdr (assoc 'type e-spec))

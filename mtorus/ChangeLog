@@ -1,3 +1,10 @@
+2004-07-20  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus-element.el: bugfixed some leftovers
+
+	* mtorus.el: added new interactive ring creation fun
+
+
 2004-07-02  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
 	* mtorus-element.el: cleansed some docstrings, made 
