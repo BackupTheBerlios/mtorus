@@ -1,5 +1,11 @@
 2004-08-11  Sebastian Freundt  <hroptatyr@users.berlios.de>
 
+	* mtorus-topology.el: mtorus-topology-<TOPO>-find
+	- fixed mal topology initialization
+
+
+2004-08-11  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
 	* mtorus.el:
 	- modified navigation via aunt/uncle/niece/nephew
 
