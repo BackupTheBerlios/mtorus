@@ -123,9 +123,11 @@ See [[DetailedDescription#topologies][The MTorus topology]] for more on topologi
 #types
 ** The MTorus types
 
-MTorus types are yet to be defined.
-We currently provide just a small pre-defined set of types: the mtorus-ring, the
-mtorus-buffer and the mtorus-marker.
+We currently provide just a small pre-defined set of types: 
+
+- the mtorus-ring
+- the mtorus-buffer
+- the mtorus-marker
 
 Instead of providing these hard-coded we concentrate our effort on effectively
 providing methods to create those types yourselves.
