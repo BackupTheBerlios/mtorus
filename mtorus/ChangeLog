@@ -1,3 +1,15 @@
+2004-09-16  Sebastian Freundt  <hroptatyr@users.berlios.de>
+
+	* mtorus.el:
+	- added indicator variables for the various behaviours
+	- fixed bug in mtorus-delete-<TYPE> functions
+	- added update of resurrection data on (mtorus-update-element)
+
+	* mtorus-state.el
+	- fixed bug when dumping elements where alive-p => nil
+	currently these elements are just omitted from dumping
+
+
 2004-09-15  Stefan Kamphausen  <mail@skamphausen.de>
 
 	* mtorus.el: Added some docstrings.

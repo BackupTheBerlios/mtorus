@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.29 2004/09/15 06:33:33 ska Exp $
+;; $Id: mtorus.el,v 1.30 2004/09/15 23:34:24 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;;           (C) 2004 by Sebastian Freundt
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
@@ -9,7 +9,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst mtorus-version "2.2 $Revision: 1.29 $"
+(defconst mtorus-version "2.2 $Revision: 1.30 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -282,27 +282,6 @@ find good settings for many people."
 ;; I'd call this static because you usually dont want to change the settings 
 ;; during an mtorus session
 
-;;; REVISE ME!
-(defcustom mtorus-buffer-skip-p
-  'mtorus-default-buffer-skip-p
-  "Predicate to use to skip buffers when cycling the real buffer list.
-This has nothing to do with the cycling inside a normal ring.
-A good example would be to use the result of
-  (string-match \"^[ \\*]+\" (buffer-name buffer))
-which skips the buffers with a star or a space at the beginning of
-their buffer names.
-The default predicate `mtorus-default-buffer-skip-p'  skips
-buffers whose names begin with a space."
-  :type 'function
-  :group 'mtorus)
-
-;; REVISE ME!
-;;; this would go to mtorus-state.el
-(defcustom mtorus-save-on-exit nil
-  "*Whether to save the current torus to the current dir on exit.
-This is an ALPHA feature."
-  :type 'boolean
-  :group 'mtorus)
 
 ;; AutoAttach elements per-type to the topology network 
 (defcustom mtorus-auto-attach-p t
@@ -342,14 +321,6 @@ their buffer names.
 The default predicate `mtorus-default-buffer-skip-p'  skips
 buffers whose names begin with a space."
   :type 'function
-  :group 'mtorus)
-
-;; REVISE ME!
-;;; this would go to mtorus-state.el
-(defcustom mtorus-save-on-exit nil
-  "*Whether to save the current torus to the current dir on exit.
-This is an ALPHA feature."
-  :type 'boolean
   :group 'mtorus)
 
 
@@ -393,7 +364,8 @@ Special care for CUA users is taken."
   (global-set-key '[(f11)] 'mtorus-create-ring)
 ;;   (global-set-key '[(shift f11)]
 ;;     'mtorus-delete-ring)
-  ;; doesnt exist atm
+  ;; does exist now, but doesnt really make sense, no?
+  ;; M-x mtorus-delete-ring RET would ask for a ring interactively
 
 ;;   (global-set-key '[(control f11)]
 ;;     'mtorus-notify)
@@ -408,7 +380,10 @@ Special care for CUA users is taken."
 
 ;;   (global-set-key '[(control f12)]
 ;;     'mtorus-update-current-marker)
+;;   (global-set-key '[(control f12)]
+;;     'mtorus-update-current-element)
   ;; doesnt exist atm
+  ;; maybe it's what mtorus-update-current-element does
 
   ;; auto selection
   (mtorus-enable-select-follows-choose)
@@ -436,7 +411,10 @@ Special care for CUA users is taken."
   ;; auto selection
   (mtorus-disable-select-follows-choose)
 
-  (message "hroptatyr bindings installed"))
+  ;; resurrection behaviour
+  (mtorus-enable-select-resurrects-dead)
+
+  (message "hroptatyr bindings and behaviours installed"))
 
 
 
@@ -445,22 +423,28 @@ Special care for CUA users is taken."
 ;; during the mtorus session
 
 ;; navigating selects the element
+(defvar mtorus-behaviour-select-follows-choose nil
+  "Indicates whether `mtorus-behaviour-select-follows-choose' is enabled.")
 (defun mtorus-enable-select-follows-choose ()
   "Use this to make mtorus automatically display a selected item.
 Use `mtorus-disable-select-follows-choose' to turn it off."
   (interactive)
   (add-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
   (add-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
-  (message "select follows choose"))
-
+  (message "select follows choose")
+  (setq mtorus-behaviour-select-follows-choose t))
 (defun mtorus-disable-select-follows-choose ()
   "See `mtorus-enable-select-follows-choose'."
   (interactive)
   (remove-hook 'mtorus-type-buffer-post-choose-funs 'mtorus-select-element)
   (remove-hook 'mtorus-type-marker-post-choose-funs 'mtorus-select-element)
-  (message "select follows choose ... off"))
+  (message "select follows choose ... off")
+  (setq mtorus-behaviour-select-follows-choose nil))
+
 
 ;; dead elements are resurrected
+(defvar mtorus-behaviour-select-resurrects-dead nil
+  "Indicates whether `mtorus-behaviour-select-resurrects-dead' is enabled.")
 (defun mtorus-behaviour-select-resurrects-dead (element)
   "MTorus automatically opens files for selected items.
 Whenever an item is selected and the according file for it is not
@@ -471,62 +455,69 @@ Use `mtorus-enable-select-resurrects-dead' to turn it on.
 Use `mtorus-disable-select-resurrects-dead' to turn it off."
   (unless (mtorus-element-alive-p element)
     (mtorus-element-resurrect element)))
-
 (defun mtorus-enable-select-resurrects-dead ()
   "Enables `mtorus-behaviour-select-resurrects-dead'.
 Use `mtorus-disable-select-resurrects-dead' to turn it off."
   (interactive)
   (add-hook 'mtorus-select-element-pre-hook 'mtorus-behaviour-select-resurrects-dead)
-  (message "select resurrects dead"))
-
+  (message "select resurrects dead")
+  (setq mtorus-behaviour-select-resurrects-dead t))
 (defun mtorus-disable-select-resurrects-dead ()
   "Disables `mtorus-behaviour-select-resurrects-dead'.
 Use `mtorus-enable-select-resurrects-dead' to turn it on."
   (interactive)
   (remove-hook 'mtorus-select-element-pre-hook 'mtorus-behaviour-select-resurrects-dead)
-  (message "select resurrects dead ... off"))
+  (message "select resurrects dead ... off")
+  (setq mtorus-behaviour-select-resurrects-dead nil))
+
 
 ;; creating a ring, also creates a buffer
+(defvar mtorus-behaviour-ring-induces-buffer nil
+  "Indicates whether `mtorus-behaviour-ring-induces-buffer' is enabled.")
 (defun mtorus-behaviour-ring-induces-buffer (element)
   "Automatically create a buffer-element when creating a new ring."
   (and (mtorus-type-ring-p element)
        (mtorus-create-element 'buffer (mtorus-default-name 'buffer))))
-
 (defun mtorus-enable-ring-induces-buffer ()
   "Enables `mtorus-behaviour-ring-induces-buffer'."
   (interactive)
   (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-buffer)
-  (message "ring induces buffer"))
-
+  (message "ring induces buffer")
+  (setq mtorus-behaviour-ring-induces-buffer t))
 (defun mtorus-disable-ring-induces-buffer ()
   "Disables `mtorus-behaviour-ring-induces-buffer'."
   (interactive)
   (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-buffer)
-  (message "ring induces buffer ... off"))
+  (message "ring induces buffer ... off")
+  (setq mtorus-behaviour-ring-induces-buffer nil))
 
 
 ;; creating a ring, also creates a marker
+(defvar mtorus-behaviour-ring-induces-marker nil
+  "Indicates whether `mtorus-behaviour-ring-induces-marker' is enabled.")
 (defun mtorus-behaviour-ring-induces-marker (element)
   "Automatically create a marker-element when creating a new ring."
   (and (mtorus-type-ring-p element)
        (mtorus-create-element 'marker (mtorus-default-name 'marker))))
-
 (defun mtorus-enable-ring-induces-marker ()
   "Enables `mtorus-behaviour-ring-induces-marker'.
 Use `mtorus-disable-ring-induces-marker' to turn off."
   (interactive)
   (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-marker)
-  (message "ring induces marker"))
-
+  (message "ring induces marker")
+  (setq mtorus-behaviour-ring-induces-marker t))
 (defun mtorus-disable-ring-induces-marker ()
   "Disables `mtorus-behaviour-ring-induces-marker'.
 Use `mtorus-enable-ring-induces-marker' to turn on."
   (interactive)
   (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-ring-induces-marker)
-  (message "ring induces marker ... off"))
+  (message "ring induces marker ... off")
+  (setq mtorus-behaviour-ring-induces-marker nil))
 
 
 ;; creating a buffer, also creates a marker
+(defvar mtorus-behaviour-buffer-induces-marker nil
+  "Indicates whether `mtorus-behaviour-buffer-induces-marker' is enabled.")
 (defun mtorus-behaviour-buffer-induces-marker (element)
   "Automatically create a marker-element when creating a new buffer.."
   (and (mtorus-type-buffer-p element)
@@ -536,13 +527,15 @@ Use `mtorus-enable-ring-induces-marker' to turn on."
 Use `mtorus-disable-buffer-induces-marker' to turn off."
   (interactive)
   (add-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-buffer-induces-marker)
-  (message "buffer induces marker"))
+  (message "buffer induces marker")
+  (setq mtorus-behaviour-buffer-induces-marker t))
 (defun mtorus-disable-buffer-induces-marker ()
   "Disables `mtorus-behaviour-buffer-induces-marker'.
 Use `mtorus-enable-buffer-induces-marker' to turn on."
   (interactive)
   (remove-hook 'mtorus-create-element-post-hook 'mtorus-behaviour-buffer-induces-marker)
-  (message "buffer induces marker ... off"))
+  (message "buffer induces marker ... off")
+  (setq mtorus-behaviour-buffer-induces-marker nil))
 
 
 
@@ -903,7 +896,7 @@ elements to only those of a certain type."
               "Delete an mtorus element of type `%s' with NAME (asked from user)."
               type)
             (interactive
-             (list (let* ((table (mtorus-element-obarray+names type))
+             (list (let* ((table (mtorus-element-obarray+names ',type))
                           (curel (car (rassoc mtorus-current-element table))))
                      (cdr
                       (assoc (completing-read
@@ -1089,8 +1082,9 @@ elements to only those of a certain type."
                     table nil t nil 'mtorus-read-string-history curel)
                    table))))
      (list element)))
-  (let ((newval (mtorus-element-inherit-value element)))
-    (mtorus-element-put-value element newval)))
+  (let ((newval (mtorus-element-inherit-value element))
+        (newres (mtorus-element-inherit-resurrection-data element)))
+    (mtorus-element-put-resurrection-data element newres)))
 
 (defun mtorus-update-current-element ()
   "Update the current element with value from mtorus-element-inherit-value."
