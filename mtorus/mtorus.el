@@ -1,5 +1,5 @@
 ;;; mtorus.el --- navigation with marks on a ring of rings (torus)
-;; $Id: mtorus.el,v 1.8 2004/06/26 23:33:32 hroptatyr Exp $
+;; $Id: mtorus.el,v 1.9 2004/07/01 22:58:30 hroptatyr Exp $
 ;; Copyright (C) 2003 by Stefan Kamphausen
 ;; Author: Stefan Kamphausen <mail@skamphausen.de>
 ;; Created: Winter 2002
@@ -7,7 +7,7 @@
 
 ;; This file is not part of XEmacs.
 
-(defconst  mtorus-version "2.0"
+(defconst mtorus-version "2.0 $Revision: 1.9 $"
   "Version number of MTorus.")
 
 ;; This program is free software; you can redistribute it and/or modify it
@@ -27,6 +27,16 @@
 
 
 ;;; Commentary:
+;; This file contains both the old mtorus code from revision 1.6
+;; and the new (more abstract) mtorus frontend code from the current
+;; development
+;; If I (hroptatyr) ever get that synch done from my personal wiki page
+;; to the berlios project page you can follow these new changes yourselves.
+;; Finally I'd like to add that I kept all the ;;; Usage and ;;; History
+;; lines until the MTorus 2.0 is stable at last.
+;; For information on how to fiddle with the new frontend/backend stuff
+;; you can visit the EmacsWiki page listed below
+;;
 ;; FIXMEs
 ;;  - generic interface for special lists, because currently the
 ;;    (only) special list (buffer list) behaviour is hard coded in a
@@ -47,6 +57,8 @@
 ;; http://www.emacswiki.org/cgi-bin/wiki/MTorus
 ;; Project page:
 ;; http://developer.berlios.de/projects/mtorus
+;; EmacsWiki page:
+;; http://www.emacswiki.org/wiki.pl?MTorus
 ;;
 ;;; Usage:
 ;;  ======
@@ -139,6 +151,7 @@
   (require 'timer))
 
 (require 'mtorus-rings)
+(require 'mtorus-element)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Customizable User Settings ;;
@@ -548,7 +561,17 @@ If none is given it is asked from the user."
   (interactive)
   (let ((new (mtorus-determine-next-ring (mtorus-ring-get-current-ring))))
     (mtorus-ring-set-current-ring (car new))
-    (message "current ring: %s" (cdr new))))
+
+    ;;; abstract this
+    (display-message
+     'what
+     (let* ((rngstr (mapconcat #'mtorus-ring-ring-name mtorus-rings " "))
+            (strpos (save-match-data
+                      (string-match (regexp-quote (cdr new)) rngstr)
+                      (cons (match-beginning 0) (match-end 0))))
+            (ext (mtorus-make-extent (car strpos) (cdr strpos) rngstr)))
+       (add-text-properties (car strpos) (cdr strpos) (list 'face 'mtorus-highlight-face) rngstr)
+       rngstr))))
 
 
 (defun mtorus-prev-ring ()
@@ -562,7 +585,17 @@ If none is given it is asked from the user."
   (interactive)
   (let ((new (mtorus-determine-prev-ring (mtorus-ring-get-current-ring))))
     (mtorus-ring-set-current-ring (car new))
-    (message "current ring: %s" (cdr new))))
+
+    ;;; abstract this
+    (display-message
+     'what
+     (let* ((rngstr (mapconcat #'mtorus-ring-ring-name mtorus-rings " "))
+            (strpos (save-match-data
+                      (string-match (regexp-quote (cdr new)) rngstr)
+                      (cons (match-beginning 0) (match-end 0))))
+            (ext (mtorus-make-extent (car strpos) (cdr strpos) rngstr)))
+       (add-text-properties (car strpos) (cdr strpos) (list 'face 'mtorus-highlight-face) rngstr)
+       rngstr))))
 
 
 
